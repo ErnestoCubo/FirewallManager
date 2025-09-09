@@ -1,6 +1,11 @@
 from flask import Blueprint, request, jsonify
-from src.models.firewall import db, Firewall
-from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field
+
+try:
+    from src.models.firewall import db, Firewall
+    from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field
+except ImportError:
+    from models.firewall import db, Firewall
+    from utils.firewall_utils import update_firewall_fields, update_firewall_unique_field
 
 firewalls_bp = Blueprint('firewalls', __name__, url_prefix='/api')
 

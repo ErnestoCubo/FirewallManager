@@ -1,4 +1,7 @@
-from src.models.firewall import Firewall
+try:
+    from src.models.firewall import Firewall
+except ImportError:
+    from models.firewall import Firewall
 
 def update_firewall_unique_field(firewall, data, field_name):
     if field_name in data and data[field_name] != getattr(firewall, field_name):

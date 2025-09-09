@@ -1,5 +1,8 @@
 from datetime import datetime
-from src.models.base import db
+try:
+    from src.models.base import db
+except ImportError:
+    from models.base import db
 
 class Firewall(db.Model):
     __tablename__ = "firewalls"
