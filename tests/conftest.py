@@ -1,0 +1,38 @@
+import pytest
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.app import create_app
+from src.models.base import db
+from src.config import TestConfig
+
+@pytest.fixture
+def app():
+    app = create_app()
+    app.config.from_object(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        yield app
+        db.session.remove()
+        db.drop_all()
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+@pytest.fixture
+def sample_firewall():
+    return {
+        "name": "TestFirewall",
+        "description": "A test firewall",
+        "hostname": "es-mad-fw1",
+        "ip_address": "192.168.1.1",
+        "vendor": "cisco",
+        "model": "cisco_2901",
+        "os_version": "15.1(4)M",
+        "country": "spain",
+        "city": "madrid",
+    }
