@@ -5,7 +5,7 @@ except ImportError:
     from models.firewall import Firewall
     from models.firewall_policy import FirewallPolicy
 
-def update_firewall_policies(firewall, data):
+def update_new_firewall_policies(firewall, data):
     policies_ids = data.get("policies_ids", [])
     if policies_ids:
         policies = FirewallPolicy.query.filter(FirewallPolicy.id.in_(policies_ids)).all()
