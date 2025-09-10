@@ -3,11 +3,11 @@ from flask import Blueprint, request, jsonify
 try:
     from src.models.firewall import db, Firewall
     from src.models.firewall_policy import FirewallPolicy
-    from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, set_firewall_policies
+    from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, update_firewall_policies
 except ImportError:
     from models.firewall import db, Firewall
     from models.firewall_policy import FirewallPolicy
-    from utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, set_firewall_policies
+    from utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, update_firewall_policies
 
 firewalls_bp = Blueprint('firewalls', __name__, url_prefix='/api')
 
@@ -63,7 +63,7 @@ def create_firewall():
     )
 
     # If provided associated policies, add them
-    set_firewall_policies(new_firewall, data)
+    update_firewall_policies(new_firewall, data)
     db.session.add(new_firewall)
     db.session.commit()
 
@@ -132,7 +132,7 @@ def update_firewall_policies(firewall_id: int):
             "firewall": firewall.to_dict()
         }), 400
 
-    set_firewall_policies(firewall, data)
+    update_firewall_policies(firewall, data)
     db.session.commit()
 
     return jsonify({

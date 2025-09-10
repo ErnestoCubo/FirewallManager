@@ -51,6 +51,8 @@ def create_firewall_policy():
         last_modified_by=data.get("last_modified_by"),
     )
 
+    # If provided associated rules, add them to the policy
+    update_policy_rules(new_policy, data)
     db.session.add(new_policy)
     db.session.commit()
 
