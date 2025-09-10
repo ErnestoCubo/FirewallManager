@@ -56,6 +56,45 @@ def test_update_nonexistent_firewall_policy(client):
     data = json.loads(response.data)
     assert "not found" in data["message"]
 
+# Test adding a firewall rule to a policy
+def test_add_firewall_rule_to_policy(client, sample_firewall_policy, sample_firewall_rule):
+    # Create a firewall policy
+    client.post("/api/firewall_policies", data=json.dumps(sample_firewall_policy), content_type="application/json")
+
+    # Create a firewall rule
+    client.post("/api/firewall_rules", data=json.dumps(sample_firewall_rule), content_type="application/json")
+
+    # Add a firewall rule to the policy
+    response = client.patch("/api/firewall_policies/1/rules", data=json.dumps({"rules_id": [1]}), content_type="application/json")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert f"Rules added to policy {sample_firewall_policy['name']}" in data["message"]
+    assert len(data["firewall_policy"]["rules"]) == 1
+    assert data["firewall_policy"]["rules"][0]["name"] == sample_firewall_rule["name"]
+
+# Test deleteting a firewall rule from a policy
+def test_delete_firewall_rule_from_policy(client, sample_firewall_policy, sample_firewall_rule):
+    # Create a firewall policy
+    client.post("/api/firewall_policies", data=json.dumps(sample_firewall_policy), content_type="application/json")
+
+    # Create a firewall rule
+    client.post("/api/firewall_rules", data=json.dumps(sample_firewall_rule), content_type="application/json")
+
+    # Add a firewall rule to the policy
+    response = client.patch("/api/firewall_policies/1/rules", data=json.dumps({"rules_id": [1]}), content_type="application/json")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert f"Rules added to policy {sample_firewall_policy['name']}" in data["message"]
+    assert len(data["firewall_policy"]["rules"]) == 1
+    assert data["firewall_policy"]["rules"][0]["name"] == sample_firewall_rule["name"]
+
+    # Remove the firewall rule from the policy
+    response = client.delete("/api/firewall_policies/1/rules/1", content_type="application/json")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert f"Rule {sample_firewall_rule['name']} removed from policy {sample_firewall_policy['name']}" in data["message"]
+    assert len(data["firewall_policy"]["rules"]) == 0
+
 # Test deleting an existing firewall policy
 def test_delete_firewall_policy(client, sample_firewall_policy):
     # Create a firewall policy

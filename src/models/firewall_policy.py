@@ -38,6 +38,7 @@ class FirewallPolicy(db.Model):
             "last_modified_by": self.last_modified_by,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "rules": [rule.to_dict() for rule in self.rules],
         }
     
     def __repr__(self):

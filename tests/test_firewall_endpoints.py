@@ -108,8 +108,8 @@ def test_patch_firewall_policies(client, sample_firewall, sample_firewall_policy
     response = client.patch("/api/firewalls/1/policies", data=json.dumps(patch_data_1), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert len(data["policies"]) == 1
-    assert data["policies"][0]["id"] == 1
+    assert len(data["firewall"]["policies"]) == 1
+    assert data["firewall"]["policies"][0]["id"] == 1
 
     # Patch the firewall to add the second policy without removing the first
     patch_data_2 = {
@@ -118,8 +118,8 @@ def test_patch_firewall_policies(client, sample_firewall, sample_firewall_policy
     response = client.patch("/api/firewalls/1/policies", data=json.dumps(patch_data_2), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert len(data["policies"]) == 2
-    policy_ids = [policy["id"] for policy in data["policies"]]
+    assert len(data["firewall"]["policies"]) == 2
+    policy_ids = [policy["id"] for policy in data["firewall"]["policies"]]
     assert 1 in policy_ids and 2 in policy_ids
 
 # Test retrieving all firewalls when some exist

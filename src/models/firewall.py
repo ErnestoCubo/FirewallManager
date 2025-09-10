@@ -41,6 +41,7 @@ class Firewall(db.Model):
             "city": self.city,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "policies": [policy.to_dict() for policy in self.policies]
         }
 
     def __repr__(self):

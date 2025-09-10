@@ -69,8 +69,7 @@ def create_firewall():
 
     return jsonify({
         "message": "Firewall created",
-        "firewall": new_firewall.to_dict(),
-        "policies": [policy.to_dict() for policy in new_firewall.policies]
+        "firewall": new_firewall.to_dict()
     }), 201
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>', methods=["PUT"])
@@ -130,8 +129,7 @@ def update_firewall_policies(firewall_id: int):
     if not data or "policies_ids" not in data:
         return jsonify({
             "message": "No policies_ids provided for update",
-            "firewall": firewall.to_dict(),
-            "policies": [policy.to_dict() for policy in firewall.policies]
+            "firewall": firewall.to_dict()
         }), 400
 
     set_firewall_policies(firewall, data)
@@ -139,8 +137,7 @@ def update_firewall_policies(firewall_id: int):
 
     return jsonify({
         "message": f"Firewall policies updated {firewall.name}",
-        "firewall": firewall.to_dict(),
-        "policies": [policy.to_dict() for policy in firewall.policies]
+        "firewall": firewall.to_dict()
     }), 200
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>/policies/<int:policy_id>', methods=["DELETE"])
@@ -165,9 +162,8 @@ def remove_firewall_policy(firewall_id: int, policy_id: int):
     db.session.commit()
 
     return jsonify({
-        "message": f"Policy {policy_id} removed from firewall {firewall.name}",
-        "firewall": firewall.to_dict(),
-        "policies": [p.to_dict() for p in firewall.policies]
+        "message": f"Policy {policy.name} removed from firewall {firewall.name}",
+        "firewall": firewall.to_dict()
     }), 200
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>', methods=["DELETE"])
