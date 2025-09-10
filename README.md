@@ -2,7 +2,7 @@
 
 ## Project Description
 
-FirewallManager is a RESTful API for managing firewalls, firewall policies, and rules. It allows users to create, update, delete, and retrieve firewall configurations, supporting operations for network security management in a scalable way.
+FirewallManager is a RESTful API for managing firewalls, firewall policies, and rules. It allows users to create, update, delete, and retrieve firewall configurations.
 
 ## Project Structure
 

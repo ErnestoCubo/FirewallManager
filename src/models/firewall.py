@@ -1,11 +1,16 @@
 from datetime import datetime
+from sqlalchemy import PrimaryKeyConstraint
+
 try:
     from src.models.base import db
+    from src.models.associations import firewall_policy_association
 except ImportError:
     from models.base import db
+    from models.associations import firewall_policy_association
 
 class Firewall(db.Model):
     __tablename__ = "firewalls"
+    __table_args__ = (PrimaryKeyConstraint('id',),)
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
@@ -19,6 +24,8 @@ class Firewall(db.Model):
     city = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    policies = db.relationship("FirewallPolicy", secondary=firewall_policy_association, back_populates="firewalls")
 
     def to_dict(self):
         return {

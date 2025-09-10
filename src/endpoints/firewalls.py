@@ -63,7 +63,7 @@ def create_firewall():
 
 # Updates an existing firewall
 @firewalls_bp.route('/firewalls/<string:hostname>', methods=["PUT"])
-def update_firewall(hostname):
+def update_firewall(hostname: str):
     firewall = Firewall.query.filter_by(hostname=hostname).first()
 
     if not firewall:
@@ -91,7 +91,6 @@ def update_firewall(hostname):
         }), 400
 
     update_firewall_fields(firewall, data)
-
     db.session.commit()
 
     return jsonify({
@@ -101,7 +100,7 @@ def update_firewall(hostname):
 
 # Deletes an existing firewall
 @firewalls_bp.route('/firewalls/<string:hostname>', methods=["DELETE"])
-def delete_firewall(hostname):
+def delete_firewall(hostname: str):
     firewall = Firewall.query.filter_by(hostname=hostname).first()
     if not firewall:
         return jsonify({

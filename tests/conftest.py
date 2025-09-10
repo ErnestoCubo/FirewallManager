@@ -36,3 +36,29 @@ def sample_firewall():
         "country": "spain",
         "city": "madrid",
     }
+
+@pytest.fixture
+def sample_firewall_policy():
+    return {
+        "name": "TestPolicy",
+        "description": "A test firewall policy",
+        "rules": [],
+        "is_active": True,
+        "created_by": "tester",
+        "last_modified_by": "tester",
+    }
+
+@pytest.fixture
+def sample_firewall_rule():
+    return {
+        "name": "AllowSSH",
+        "description": "Allow SSH traffic",
+        "action": "allow",
+        "source_ip": "192.168.1.10",
+        "destination_ip": "192.168.1.20",
+        "protocol": "tcp",
+        "port": 22,
+        "is_active": True,
+        "created_by": "tester",
+        "last_modified_by": "tester",
+    }
