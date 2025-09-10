@@ -2,16 +2,22 @@ from flask import Blueprint, request, jsonify
 
 try:
     from src.models.firewall import db, Firewall
-    from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field
+    from src.models.firewall_policy import FirewallPolicy
+    from src.utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, set_firewall_policies
 except ImportError:
     from models.firewall import db, Firewall
-    from utils.firewall_utils import update_firewall_fields, update_firewall_unique_field
+    from models.firewall_policy import FirewallPolicy
+    from utils.firewall_utils import update_firewall_fields, update_firewall_unique_field, set_firewall_policies
 
 firewalls_bp = Blueprint('firewalls', __name__, url_prefix='/api')
 
-# Retrieve all firewalls
+FIREWALL_NOT_FOUND_MESSAGE = "Firewall not found"
+
 @firewalls_bp.route('/firewalls', methods=["GET"])
 def get_firewalls():
+    """
+    Retrieve all firewalls
+    """
     firewalls = Firewall.query.all()
 
     if firewalls:
@@ -23,9 +29,11 @@ def get_firewalls():
             "firewalls": []
         }), 200
 
-# Creates a new firewall
 @firewalls_bp.route('/firewalls', methods=["POST"])
 def create_firewall():
+    """
+    Create a new firewall
+    """
     data = request.get_json()
 
     firewall_hostname = Firewall.query.filter_by(hostname=data['hostname']).first()
@@ -41,6 +49,7 @@ def create_firewall():
             "message": f"Firewall with this name {data['name']} already exists"
         }), 400
 
+    # Creating a new firewall instance
     new_firewall = Firewall(
         name=data.get("name"),
         description=data.get("description"),
@@ -53,17 +62,22 @@ def create_firewall():
         city=data.get("city"),
     )
 
+    # If provided associated policies, add them
+    set_firewall_policies(new_firewall, data)
     db.session.add(new_firewall)
     db.session.commit()
 
     return jsonify({
         "message": "Firewall created",
-        "firewall": new_firewall.to_dict()
+        "firewall": new_firewall.to_dict(),
+        "policies": [policy.to_dict() for policy in new_firewall.policies]
     }), 201
 
-# Updates an existing firewall
 @firewalls_bp.route('/firewalls/<string:hostname>', methods=["PUT"])
 def update_firewall(hostname: str):
+    """
+    Update an existing firewall
+    """
     firewall = Firewall.query.filter_by(hostname=hostname).first()
 
     if not firewall:
@@ -90,7 +104,8 @@ def update_firewall(hostname: str):
             "firewall": firewall.to_dict()
         }), 400
 
-    update_firewall_fields(firewall, data)
+    # Update normal fields
+    update_firewall_fields(firewall, data)    
     db.session.commit()
 
     return jsonify({
@@ -98,13 +113,72 @@ def update_firewall(hostname: str):
         "firewall": firewall.to_dict()
     }), 200
 
-# Deletes an existing firewall
+@firewalls_bp.route('/firewalls/<string:hostname>/policies', methods=["PATCH"])
+def update_firewall_policies(hostname: str):
+    """
+    Update firewall policies (add/remove) without using overwrite
+    """
+    firewall = Firewall.query.filter_by(hostname=hostname).first()
+
+    if not firewall:
+        return jsonify({
+            "message": FIREWALL_NOT_FOUND_MESSAGE
+        }), 404
+
+    data = request.get_json()
+
+    if not data or "policies_ids" not in data:
+        return jsonify({
+            "message": "No policies_ids provided for update",
+            "firewall": firewall.to_dict(),
+            "policies": [policy.to_dict() for policy in firewall.policies]
+        }), 400
+
+    set_firewall_policies(firewall, data)
+    db.session.commit()
+
+    return jsonify({
+        "message": f"Firewall policies updated {hostname}",
+        "firewall": firewall.to_dict(),
+        "policies": [policy.to_dict() for policy in firewall.policies]
+    }), 200
+
+@firewalls_bp.route('/firewalls/<string:hostname>/policies/<int:policy_id>', methods=["DELETE"])
+def remove_firewall_policy(hostname: str, policy_id: int):
+    """
+    Remove a specific policy from a firewall
+    """
+    firewall = Firewall.query.filter_by(hostname=hostname).first()
+    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+
+    if not firewall:
+        return jsonify({
+            "message": FIREWALL_NOT_FOUND_MESSAGE
+        }), 404
+
+    if not policy:
+        return jsonify({
+            "message": "Policy not found"
+        }), 404
+
+    firewall.policies.remove(policy)
+    db.session.commit()
+
+    return jsonify({
+        "message": f"Policy {policy_id} removed from firewall {hostname}",
+        "firewall": firewall.to_dict(),
+        "policies": [p.to_dict() for p in firewall.policies]
+    }), 200
+
 @firewalls_bp.route('/firewalls/<string:hostname>', methods=["DELETE"])
 def delete_firewall(hostname: str):
+    """
+    Delete an existing firewall
+    """
     firewall = Firewall.query.filter_by(hostname=hostname).first()
     if not firewall:
         return jsonify({
-            "message": "Firewall not found"
+            "message": FIREWALL_NOT_FOUND_MESSAGE
         }), 404
 
     db.session.delete(firewall)

@@ -89,6 +89,39 @@ def test_update_firewall_duplicate_hostname(client, sample_firewall):
     data = json.loads(response.data)
     assert "already exists" in data["message"]
 
+# Test updating firewall policies
+def test_patch_firewall_policies(client, sample_firewall, sample_firewall_policy):
+    # Create a firewall
+    client.post("/api/firewalls", data=json.dumps(sample_firewall), content_type="application/json")
+    
+    # Create two policies
+    client.post("/api/firewall_policies", data=json.dumps(sample_firewall_policy), content_type="application/json")
+    new_policy = sample_firewall_policy.copy()
+    new_policy["name"] = "Allow HTTPS"
+    new_policy["port"] = 443
+    client.post("/api/firewall_policies", data=json.dumps(new_policy), content_type="application/json")
+    
+    # Patch the firewall to add the first policy
+    patch_data_1 = {
+        "policies_ids": [1]
+    }
+    response = client.patch("/api/firewalls/es-mad-fw1/policies", data=json.dumps(patch_data_1), content_type="application/json")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert len(data["policies"]) == 1
+    assert data["policies"][0]["id"] == 1
+
+    # Patch the firewall to add the second policy without removing the first
+    patch_data_2 = {
+        "policies_ids": [2]
+    }
+    response = client.patch("/api/firewalls/es-mad-fw1/policies", data=json.dumps(patch_data_2), content_type="application/json")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert len(data["policies"]) == 2
+    policy_ids = [policy["id"] for policy in data["policies"]]
+    assert 1 in policy_ids and 2 in policy_ids
+
 # Test retrieving all firewalls when some exist
 def test_get_firewalls_non_empty(client, sample_firewall):
     # Create a firewall

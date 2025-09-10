@@ -9,9 +9,11 @@ except ImportError:
 
 firewall_policies_bp = Blueprint('firewall_policies', __name__, url_prefix='/api')
 
-# Retrieve all firewall policies
 @firewall_policies_bp.route('/firewall_policies', methods=["GET"])
 def get_firewall_policies():
+    """
+    Retrieve all firewall policies
+    """
     policies = FirewallPolicy.query.all()
     if policies:
         return jsonify({
@@ -22,9 +24,11 @@ def get_firewall_policies():
         "firewall_policies": []
     }), 200
 
-# Create a new firewall policy
 @firewall_policies_bp.route('/firewall_policies', methods=["POST"])
 def create_firewall_policy():
+    """
+    Create a new firewall policy
+    """
     data = request.get_json()
 
     policy_name = FirewallPolicy.query.filter_by(name=data['name']).first()
@@ -51,9 +55,11 @@ def create_firewall_policy():
         "firewall_policy": new_policy.to_dict()
     }), 201
 
-# Update an existing firewall policy
 @firewall_policies_bp.route('/firewall_policies/<string:policy_name>', methods=["PUT"])
 def update_firewall_policy(policy_name: str):
+    """
+    Update an existing firewall policy
+    """
     policy = FirewallPolicy.query.filter_by(name=policy_name).first()
 
     if not policy:
@@ -82,9 +88,11 @@ def update_firewall_policy(policy_name: str):
         "firewall_policy": policy.to_dict()
     }), 200
 
-# Delete an existing firewall policy
 @firewall_policies_bp.route('/firewall_policies/<string:policy_name>', methods=["DELETE"])
 def delete_firewall_policy(policy_name: str):
+    """
+    Delete an existing firewall policy
+    """
     policy = FirewallPolicy.query.filter_by(name=policy_name).first()
     if not policy:
         return jsonify({

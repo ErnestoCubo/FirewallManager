@@ -9,9 +9,9 @@ except ImportError:
 
 firewall_rules_bp = Blueprint('firewall_rules', __name__, url_prefix='/api')
 
-# Retrieve all firewall rules
 @firewall_rules_bp.route('/firewall_rules', methods=['GET'])
 def get_firewall_rules():
+    """Retrieve all firewall rules"""
     rules = FirewallRule.query.all()
     if rules:
         return jsonify({
@@ -22,9 +22,9 @@ def get_firewall_rules():
         "firewall_rules": []
     }), 200
 
-# Create a new firewall rule
 @firewall_rules_bp.route('/firewall_rules', methods=['POST'])
 def create_firewall_rule():
+    """Create a new firewall rule"""
     data = request.get_json()
 
     new_rule = FirewallRule(
@@ -48,9 +48,9 @@ def create_firewall_rule():
         "firewall_rule": new_rule.to_dict()
     }), 201
 
-# Update an existing firewall rule
 @firewall_rules_bp.route('/firewall_rules/<int:rule_id>', methods=['PUT'])
 def update_firewall_rule(rule_id: int):
+    """Update an existing firewall rule"""
     rule = FirewallRule.query.filter_by(id=rule_id).first()
 
     if not rule:
@@ -67,9 +67,9 @@ def update_firewall_rule(rule_id: int):
         "firewall_rule": rule.to_dict()
     }), 200
 
-# Delete a firewall rule
 @firewall_rules_bp.route('/firewall_rules/<int:rule_id>', methods=['DELETE'])
 def delete_firewall_rule(rule_id: int):
+    """Delete a firewall rule"""
     rule = FirewallRule.query.filter_by(id=rule_id).first()
 
     if not rule:
