@@ -55,12 +55,12 @@ def create_firewall_policy():
         "firewall_policy": new_policy.to_dict()
     }), 201
 
-@firewall_policies_bp.route('/firewall_policies/<string:policy_name>', methods=["PUT"])
-def update_firewall_policy(policy_name: str):
+@firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["PUT"])
+def update_firewall_policy(policy_id: int):
     """
     Update an existing firewall policy
     """
-    policy = FirewallPolicy.query.filter_by(name=policy_name).first()
+    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
 
     if not policy:
         return jsonify({
@@ -84,16 +84,16 @@ def update_firewall_policy(policy_name: str):
     db.session.commit()
 
     return jsonify({
-        "message": f"Firewall policy updated {policy_name}",
+        "message": f"Firewall policy updated {policy.name}",
         "firewall_policy": policy.to_dict()
     }), 200
 
-@firewall_policies_bp.route('/firewall_policies/<string:policy_name>', methods=["DELETE"])
-def delete_firewall_policy(policy_name: str):
+@firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["DELETE"])
+def delete_firewall_policy(policy_id: int):
     """
     Delete an existing firewall policy
     """
-    policy = FirewallPolicy.query.filter_by(name=policy_name).first()
+    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
     if not policy:
         return jsonify({
             "message": "Firewall policy not found"
@@ -103,6 +103,6 @@ def delete_firewall_policy(policy_name: str):
     db.session.commit()
 
     return jsonify({
-        "message": f"Firewall policy {policy_name} deleted",
+        "message": f"Firewall policy {policy.name} deleted",
         "firewall_policy": policy.to_dict()
     }), 200

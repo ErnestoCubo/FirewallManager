@@ -38,7 +38,7 @@ def test_update_firewall_policy(client, sample_firewall_policy):
         "description": "Updated description",
         "is_active": False
     }
-    response = client.put(f"/api/firewall_policies/{sample_firewall_policy['name']}", data=json.dumps(update_data), content_type="application/json")
+    response = client.put("/api/firewall_policies/1", data=json.dumps(update_data), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert "Firewall policy updated" in data["message"]
@@ -51,7 +51,7 @@ def test_update_nonexistent_firewall_policy(client):
         "description": "Updated description",
         "is_active": False
     }
-    response = client.put("/api/firewall_policies/unexistant_policy", data=json.dumps(update_data), content_type="application/json")
+    response = client.put("/api/firewall_policies/1", data=json.dumps(update_data), content_type="application/json")
     assert response.status_code == 404
     data = json.loads(response.data)
     assert "not found" in data["message"]
@@ -62,14 +62,14 @@ def test_delete_firewall_policy(client, sample_firewall_policy):
     client.post("/api/firewall_policies", data=json.dumps(sample_firewall_policy), content_type="application/json")
     
     # Delete the firewall policy
-    response = client.delete(f"/api/firewall_policies/{sample_firewall_policy['name']}")
+    response = client.delete("/api/firewall_policies/1")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert f"Firewall policy {sample_firewall_policy['name']} deleted" in data["message"]
 
 # Test deleting a non-existent firewall policy
 def test_delete_nonexistent_firewall_policy(client):
-    response = client.delete("/api/firewall_policies/unexistant_policy")
+    response = client.delete("/api/firewall_policies/1")
     assert response.status_code == 404
     data = json.loads(response.data)
     assert "not found" in data["message"]

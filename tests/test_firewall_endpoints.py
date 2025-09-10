@@ -51,7 +51,7 @@ def test_update_firewall(client, sample_firewall):
         "description": "Updated description",
         "ip_address": "192.168.1.2"
     }
-    response = client.put("/api/firewalls/es-mad-fw1", data=json.dumps(update_data), content_type="application/json")
+    response = client.put("/api/firewalls/1", data=json.dumps(update_data), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert "Firewall updated" in data["message"]
@@ -64,7 +64,7 @@ def test_update_firewall_not_found(client):
         "description": "Updated description",
         "ip_address": "192.168.1.2"
     }
-    response = client.put("/api/firewalls/es-mad-fw3", data=json.dumps(update_data), content_type="application/json")
+    response = client.put("/api/firewalls/999", data=json.dumps(update_data), content_type="application/json")
     assert response.status_code == 404
     data = json.loads(response.data)
     assert "not found" in data["message"]
@@ -84,7 +84,7 @@ def test_update_firewall_duplicate_hostname(client, sample_firewall):
     update_data = {
         "hostname": "es-mad-fw2"
     }
-    response = client.put("/api/firewalls/es-mad-fw1", data=json.dumps(update_data), content_type="application/json")
+    response = client.put("/api/firewalls/1", data=json.dumps(update_data), content_type="application/json")
     assert response.status_code == 400
     data = json.loads(response.data)
     assert "already exists" in data["message"]
@@ -105,7 +105,7 @@ def test_patch_firewall_policies(client, sample_firewall, sample_firewall_policy
     patch_data_1 = {
         "policies_ids": [1]
     }
-    response = client.patch("/api/firewalls/es-mad-fw1/policies", data=json.dumps(patch_data_1), content_type="application/json")
+    response = client.patch("/api/firewalls/1/policies", data=json.dumps(patch_data_1), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data["policies"]) == 1
@@ -115,7 +115,7 @@ def test_patch_firewall_policies(client, sample_firewall, sample_firewall_policy
     patch_data_2 = {
         "policies_ids": [2]
     }
-    response = client.patch("/api/firewalls/es-mad-fw1/policies", data=json.dumps(patch_data_2), content_type="application/json")
+    response = client.patch("/api/firewalls/1/policies", data=json.dumps(patch_data_2), content_type="application/json")
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data["policies"]) == 2
@@ -139,13 +139,13 @@ def test_delete_firewall(client, sample_firewall):
     # Create a firewall
     client.post("/api/firewalls", data=json.dumps(sample_firewall), content_type="application/json")
     # Delete the firewall
-    response = client.delete("/api/firewalls/es-mad-fw1")
+    response = client.delete("/api/firewalls/1")
     assert response.status_code == 200
 
 # Test deleting a non existent firewall
 def test_delete_firewall_not_found(client):
     # Attempt to delete a non-existent firewall
-    response = client.delete("/api/firewalls/es-mad-fw3")
+    response = client.delete("/api/firewalls/999")
     assert response.status_code == 404
     data = json.loads(response.data)
     assert "not found" in data["message"]
