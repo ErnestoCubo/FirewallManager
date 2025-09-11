@@ -1,3 +1,7 @@
+"""
+This module defines association tables for many-to-many relationships
+between firewalls, policies, and rules using SQLAlchemy.
+"""
 try:
     from src.models.base import db
 except ImportError:

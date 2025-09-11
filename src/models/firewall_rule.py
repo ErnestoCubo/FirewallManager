@@ -1,3 +1,8 @@
+"""Firewall rule module
+
+This module defines the FirewallRule model representing individual firewall rules
+and their relationships with firewall policies.
+"""
 import datetime
 from sqlalchemy import PrimaryKeyConstraint
 
@@ -9,6 +14,37 @@ except ImportError:
     from models.associations import firewall_rules_association
 
 class FirewallRule(db.Model):
+    """
+    Represents an individual firewall rule.
+
+    This model stores information about firewall rules including their
+    configuration, action, and associated policies.
+
+    Attributes:
+        id (int): Primary key identifier.
+        name (str): Name of the firewall rule.
+        description (str): Optional description of the rule.
+        action (str): Action to be taken (e.g., allow, deny).
+        source_ip (str): Source IP address or range.
+        destination_ip (str): Destination IP address or range.
+        protocol (str): Network protocol (e.g., TCP, UDP).
+        port (str): Port number or range.
+        is_active (bool): Status of the rule (active/inactive).
+        created_by (str): User who created the rule.
+        last_modified_by (str): User who last modified the rule.
+        created_at (datetime): Timestamp of creation.
+        updated_at (datetime): Timestamp of last update.
+        policies (relationship): Associated firewall policies.
+
+    Example:
+        >>> rule = FirewallRule(
+        ...     name="Allow HTTP",
+        ...     action="allow",
+        ...     source_ip="
+        ...     destination_ip="
+        ...     protocol="TCP",
+        ... )
+    """
     __tablename__ = "rules"
     __table_args__ = (db.PrimaryKeyConstraint('id',),)
 
@@ -28,7 +64,13 @@ class FirewallRule(db.Model):
 
     policies = db.relationship("FirewallPolicy", secondary=firewall_rules_association, back_populates="rules")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert the FirewallRule instance to a dictionary representation.
+        
+        Returns:
+            dict: Dictionary containing the firewall rule's attributes.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -45,5 +87,6 @@ class FirewallRule(db.Model):
             "updated_at": self.updated_at.isoformat(),
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return string representation of the firewall rule."""
         return f"<FirewallRule {self.name} (ID: {self.id})>"

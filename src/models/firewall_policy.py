@@ -1,3 +1,9 @@
+"""
+Firewall Policy model module.
+
+This module defines the FirewallPolicy model representing security policies
+that can be applied to firewalls and contain security rules.
+"""
 import datetime
 from sqlalchemy import PrimaryKeyConstraint
 
@@ -8,9 +14,39 @@ except ImportError:
     from models.base import db
     from models.associations import firewall_policy_association, firewall_rules_association
 
+
 class FirewallPolicy(db.Model):
+    """
+    Represents a firewall security policy.
+    
+    A policy is a collection of security rules that can be applied to one or more
+    firewalls. Policies help organize and manage security rules in a hierarchical
+    manner.
+    
+    Attributes:
+        id (int): Primary key identifier.
+        name (str): Unique name of the policy.
+        description (str): Optional description of the policy's purpose.
+        policy_type (str): Type of policy (e.g., 'inbound', 'outbound', 'both').
+        is_active (bool): Whether the policy is currently active.
+        priority (int): Priority level for policy application order.
+        created_by (str): Username of the creator.
+        last_modified_by (str): Username of the last modifier.
+        created_at (datetime): Timestamp of creation.
+        updated_at (datetime): Timestamp of last update.
+        firewalls (relationship): Firewalls using this policy.
+        rules (relationship): Security rules included in this policy.
+    
+    Example:
+        >>> policy = FirewallPolicy(
+        ...     name="Web Server Policy",
+        ...     description="Allow HTTP/HTTPS traffic",
+        ...     policy_type="inbound",
+        ...     priority=1
+        ... )
+    """
     __tablename__ = "policies"
-    __table_args__ = (PrimaryKeyConstraint('id',),)
+    __table_args__ = (PrimaryKeyConstraint('id'),)
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
@@ -26,7 +62,13 @@ class FirewallPolicy(db.Model):
     firewalls = db.relationship("Firewall", secondary=firewall_policy_association, back_populates="policies")
     rules = db.relationship("FirewallRule", secondary=firewall_rules_association, back_populates="policies")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert policy instance to dictionary representation.
+        
+        Returns:
+            dict: Dictionary containing all policy attributes.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -41,5 +83,6 @@ class FirewallPolicy(db.Model):
             "rules": [rule.to_dict() for rule in self.rules],
         }
     
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return string representation of the policy."""
         return f"<FirewallPolicy {self.name} (ID: {self.id})>"

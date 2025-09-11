@@ -42,10 +42,10 @@ def sample_firewall_policy():
     return {
         "name": "TestPolicy",
         "description": "A test firewall policy",
-        "rules": [],
+        "policy_type": "inbound",
         "is_active": True,
-        "created_by": "tester",
-        "last_modified_by": "tester",
+        "priority": 1,
+        "rules": [],
     }
 
 @pytest.fixture
@@ -61,4 +61,12 @@ def sample_firewall_rule():
         "is_active": True,
         "created_by": "tester",
         "last_modified_by": "tester",
+    }
+
+@pytest.fixture
+def sample_user():
+    return {
+        "username": "testuser",
+        "password": "TestPassword123!",
+        "email": "testuser@example.com"
     }

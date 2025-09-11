@@ -1,6 +1,11 @@
+"""
+Firewall model module.
+
+This module defines the Firewall model representing network firewall devices
+and their relationships with security policies.
+"""
 from datetime import datetime
 from sqlalchemy import PrimaryKeyConstraint
-
 try:
     from src.models.base import db
     from src.models.associations import firewall_policy_association
@@ -9,14 +14,44 @@ except ImportError:
     from models.associations import firewall_policy_association
 
 class Firewall(db.Model):
+    """
+    Represents a network firewall device.
+    
+    This model stores information about firewall devices including their
+    configuration, location, and associated security policies.
+    
+    Attributes:
+        id (int): Primary key identifier.
+        name (str): Unique name of the firewall.
+        hostname (str): Unique hostname for network identification.
+        description (str): Optional description of the firewall.
+        ip_address (str): IP address of the firewall.
+        vendor (str): Manufacturer of the firewall (e.g., Cisco, Fortinet).
+        model (str): Model number or name.
+        os_version (str): Operating system version.
+        country (str): Physical location country.
+        city (str): Physical location city.
+        created_at (datetime): Timestamp of creation.
+        updated_at (datetime): Timestamp of last update.
+        policies (relationship): Associated firewall policies.
+    
+    Example:
+        >>> firewall = Firewall(
+        ...     name="Main Office FW",
+        ...     hostname="fw-main-01",
+        ...     ip_address="192.168.1.1",
+        ...     vendor="Cisco",
+        ...     model="ASA 5505"
+        ... )
+    """
     __tablename__ = "firewalls"
-    __table_args__ = (PrimaryKeyConstraint('id',),)
+    __table_args__ = (PrimaryKeyConstraint('id'),)
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
-    description = db.Column(db.String(255), nullable=True)
     hostname = db.Column(db.String(255), nullable=False, unique=True)
-    ip_address = db.Column(db.String(45), nullable=False, unique=False)
+    description = db.Column(db.String(255), nullable=True)
+    ip_address = db.Column(db.String(45), nullable=False)
     vendor = db.Column(db.String(50), nullable=False)
     model = db.Column(db.String(50), nullable=False)
     os_version = db.Column(db.String(50), nullable=False)
@@ -27,7 +62,13 @@ class Firewall(db.Model):
 
     policies = db.relationship("FirewallPolicy", secondary=firewall_policy_association, back_populates="firewalls")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert firewall instance to dictionary representation.
+        
+        Returns:
+            dict: Dictionary containing all firewall attributes.
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -44,5 +85,6 @@ class Firewall(db.Model):
             "policies": [policy.to_dict() for policy in self.policies]
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return string representation of the firewall."""
         return f"<Firewall {self.name} ({self.hostname})>"

@@ -1,4 +1,13 @@
+"""
+Firewall Policies API endpoints.
+
+This module defines RESTful API endpoints for managing firewall policies,
+including creation, retrieval, updating, deletion, and rule associations.
+"""
+
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from typing import Tuple, Dict, Any
 
 try:
     from src.models.firewall_policy import db, FirewallPolicy
@@ -14,155 +23,290 @@ firewall_policies_bp = Blueprint('firewall_policies', __name__, url_prefix='/api
 FIREWALL_POLICY_NOT_FOUND = "Firewall policy not found"
 
 @firewall_policies_bp.route('/firewall_policies', methods=["GET"])
-def get_firewall_policies():
+@jwt_required()
+def get_firewall_policies() -> Tuple[Dict[str, Any], int]:
     """
-    Retrieve all firewall policies
+    Returns a list of all firewall policies in the system with their associated rules.
+
+    Returns:
+        tuple: JSON response with list of firewall policies and HTTP status code.
+
+    Responses:
+        200: List of firewall retrieved policies.
+        500: Internal server error.
     """
-    policies = FirewallPolicy.query.all()
-    if policies:
+    try:
+        policies = FirewallPolicy.query.all()
         return jsonify({
             "firewall_policies": [policy.to_dict() for policy in policies]
         }), 200
-    
-    return jsonify({
-        "firewall_policies": []
-    }), 200
+
+    except Exception as e:
+        return jsonify({
+            "message": str(e)
+        }), 500
+
 
 @firewall_policies_bp.route('/firewall_policies', methods=["POST"])
-def create_firewall_policy():
+@jwt_required()
+def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
     """
-    Create a new firewall policy
-    """
-    data = request.get_json()
+    Creates a new firewall policy with the provided information and optionally
+    associates it with existing rules.
 
-    policy_name = FirewallPolicy.query.filter_by(name=data['name']).first()
-    if policy_name:
+    Request Body:
+        name (str): Name of the firewall policy.
+        description (str, optional): Description of the firewall policy.
+        policy_type (str): Type of the firewall policy.
+        is_active (bool, optional): Whether the policy is active.
+        priority (int, optional): Priority of the policy.
+        rules_id (list[int], optional): List of rule IDs to associate with the policy.
+
+    Returns:
+        tuple: JSON response with created firewall policy details and HTTP status code.
+
+    Responses:
+        201: Firewall policy created successfully.
+        400: Bad request (e.g., missing required fields, duplicate name).
+        500: Internal server error.
+    """
+    try:
+        data = request.get_json()
+        user = get_jwt_identity()
+
+        required_fields = ["name", "policy_type", "is_active", "priority"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    "message": f"Missing required field: {field}"
+                }), 400
+
+        policy_name = FirewallPolicy.query.filter_by(name=data['name']).first()
+        if policy_name:
+            return jsonify({
+                "message": f"Firewall policy with this name {data['name']} already exists"
+            }), 400
+
+        new_policy = FirewallPolicy(
+            name=data.get("name"),
+            description=data.get("description"),
+            policy_type=data.get("policy_type"),
+            is_active=data.get("is_active", True),
+            priority=data.get("priority"),
+            created_by=user,
+            last_modified_by=user,
+        )
+
+        # If provided associated rules, add them to the policy
+        update_policy_rules(new_policy, data)
+        db.session.add(new_policy)
+        db.session.commit()
+
         return jsonify({
-            "message": f"Firewall policy with this name {data['name']} already exists"
-        }), 400
+            "message": "Firewall policy created",
+            "firewall_policy": new_policy.to_dict()
+        }), 201
 
-    new_policy = FirewallPolicy(
-        name=data.get("name"),
-        description=data.get("description"),
-        policy_type=data.get("policy_type"),
-        is_active=data.get("is_active", True),
-        priority=data.get("priority"),
-        created_by=data.get("created_by"),
-        last_modified_by=data.get("last_modified_by"),
-    )
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "message": str(e)}
+        ), 500
 
-    # If provided associated rules, add them to the policy
-    update_policy_rules(new_policy, data)
-    db.session.add(new_policy)
-    db.session.commit()
-
-    return jsonify({
-        "message": "Firewall policy created",
-        "firewall_policy": new_policy.to_dict()
-    }), 201
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["PUT"])
-def update_firewall_policy(policy_id: int):
+@jwt_required()
+def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Update an existing firewall policy
-    """
-    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+    Updates an existing firewall policy with the provided information and replaces all rule associations
+    if rules_id is provided.
 
-    if not policy:
-        return jsonify({
-            "message": FIREWALL_POLICY_NOT_FOUND
-        }), 404
+    Args:
+        policy_id (int): ID of the firewall policy to update.
 
-    data = request.get_json()
+    Request Body:
+        Same fields as in create_firewall_policy endpoint.
+        rules_id (list[int], optional): If provided, replaces all current rules.
+
+    Returns:
+        tuple: JSON response with updated firewall policy details and HTTP status code.
     
-    if not data:
+    Responses:
+        200: Firewall policy updated successfully.
+        400: Bad request (e.g., duplicate name).
+        404: Firewall policy not found.
+        500: Internal server error.
+    """
+    try:
+        policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+
+        if not policy:
+            return jsonify({
+                "message": FIREWALL_POLICY_NOT_FOUND
+            }), 404
+
+        data = request.get_json()
+        data['last_modified_by'] = get_jwt_identity()
+
+        if not data:
+            return jsonify({
+                "message": "No data provided for update",
+                "policy": policy.to_dict()
+            }), 400
+
+        if not update_firewall_policy_unique_field(policy, data, 'name'):
+            return jsonify({
+                "message": f"Firewall policy with this name {data['name']} already exists"
+            }), 400
+
+        update_firewall_policy_fields(policy, data)
+        db.session.commit()
+
         return jsonify({
-            "message": "No data provided for update",
-            "policy": policy.to_dict()
-        }), 400
+            "message": f"Firewall policy updated {policy.name}",
+            "firewall_policy": policy.to_dict()
+        }), 200
 
-    if not update_firewall_policy_unique_field(policy, data, 'name'):
+    except Exception as e:
+        db.session.rollback()
         return jsonify({
-            "message": f"Firewall policy with this name {data['name']} already exists"
-        }), 400
+            "message": str(e)}
+        ), 500
 
-    update_firewall_policy_fields(policy, data)
-    db.session.commit()
-
-    return jsonify({
-        "message": f"Firewall policy updated {policy.name}",
-        "firewall_policy": policy.to_dict()
-    }), 200
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>/rules', methods=["PATCH"])
-def add_rules_to_policy(policy_id: int):
+@jwt_required()
+def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Add a rule to an existing firewall policy
+    This endpoint performs a partial update to an existing firewall policy by adding new rules
+    to its current set of associated rules.
+
+    Args:
+        policy_id (int): ID of the firewall policy to update.
+
+    Request Body:
+        rules_id (list[int]): List of rule IDs to add to the policy.
+
+    Returns:
+        tuple: JSON response with updated firewall policy details and HTTP status code.
+
+    Responses:
+        200: Rules added to the firewall policy successfully.
+        400: Bad request (e.g., no rules_id provided).
+        404: Firewall policy not found.
+        500: Internal server error.
     """
-    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+    try:
+        policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+        if not policy:
+            return jsonify({
+                "message": FIREWALL_POLICY_NOT_FOUND
+            }), 404
 
-    if not policy:
-        return jsonify({
-            "message": FIREWALL_POLICY_NOT_FOUND
-        }), 404
+        data = request.get_json()
 
-    data = request.get_json()
-    
-    if not data or "rules_id" not in data:
+        if not data or "rules_id" not in data:
+            return jsonify({
+                "message": "No rules_id provided to add to policy",
+                "firewall_policy": policy.to_dict()
+            }), 400
+
+        update_policy_rules(policy, data)
+        data['last_modified_by'] = get_jwt_identity()
+        db.session.commit()
+
         return jsonify({
-            "message": "No rules_id provided to add to policy",
+            "message": f"Rules added to policy {policy.name}",
             "firewall_policy": policy.to_dict()
-        }), 400
+        }), 200
 
-    update_policy_rules(policy, data)
-    db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "message": str(e)}
+        ), 500
 
-    return jsonify({
-        "message": f"Rules added to policy {policy.name}",
-        "firewall_policy": policy.to_dict()
-    }), 200
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>/rules/<int:rule_id>', methods=["DELETE"])
-def remove_rule_from_policy(policy_id: int, rule_id: int):
+@jwt_required()
+def remove_rule_from_policy(policy_id: int, rule_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Remove a rule from an existing firewall policy
+    Remove a specific rule from a firewall policy.
+
+    Args:
+        policy_id (int): ID of the firewall policy.
+        rule_id (int): ID of the rule to remove from the policy.
+
+    Returns:
+        tuple: JSON response with updated firewall policy details and HTTP status code.
+
+    Responses:
+        200: Rule removed from the firewall policy successfully.
+        404: Firewall policy or rule not found.
+        500: Internal server error.
     """
-    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
-    rule = FirewallRule.query.filter_by(id=rule_id).first()
+    try:
+        policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+        rule = FirewallRule.query.filter_by(id=rule_id).first()
 
-    if not policy:
+        if not policy:
+            return jsonify({
+                "message": FIREWALL_POLICY_NOT_FOUND
+            }), 404
+
+        if not rule:
+            return jsonify({
+                "message": f"Rule with id {rule_id} not found"
+            }), 404
+
+        policy.rules.remove(rule)
+        db.session.commit()
+
         return jsonify({
-            "message": FIREWALL_POLICY_NOT_FOUND
-        }), 404
+            "message": f"Rule {rule.name} removed from policy {policy.name}",
+            "firewall_policy": policy.to_dict()
+        }), 200
 
-    if not rule:
+    except Exception as e:
+        db.session.rollback()
         return jsonify({
-            "message": f"Rule with id {rule_id} not found"
-        }), 404
-
-    policy.rules.remove(rule)
-    db.session.commit()
-
-    return jsonify({
-        "message": f"Rule {rule.name} removed from policy {policy.name}",
-        "firewall_policy": policy.to_dict()
-    }), 200
+            "message": str(e)}
+        ), 500
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["DELETE"])
-def delete_firewall_policy(policy_id: int):
+@jwt_required()
+def delete_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Delete an existing firewall policy
+    Removes a firewall policy and its associated rules from the system.
+
+    Args:
+        policy_id (int): ID of the firewall policy to delete.
+
+    Returns:
+        tuple: JSON response with details of the deleted firewall policy and HTTP status code.
+
+    Responses:
+        200: Firewall policy deleted successfully.
+        404: Firewall policy not found.
+        500: Internal server error. 
     """
-    policy = FirewallPolicy.query.filter_by(id=policy_id).first()
-    if not policy:
+    try:
+        policy = FirewallPolicy.query.filter_by(id=policy_id).first()
+        if not policy:
+            return jsonify({
+                "message": FIREWALL_POLICY_NOT_FOUND
+            }), 404
+
+        db.session.delete(policy)
+        db.session.commit()
+
         return jsonify({
-            "message": FIREWALL_POLICY_NOT_FOUND
-        }), 404
-
-    db.session.delete(policy)
-    db.session.commit()
-
-    return jsonify({
-        "message": f"Firewall policy {policy.name} deleted",
-        "firewall_policy": policy.to_dict()
-    }), 200
+            "message": f"Firewall policy {policy.name} deleted",
+            "firewall_policy": policy.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "message": str(e)}
+        ), 500
