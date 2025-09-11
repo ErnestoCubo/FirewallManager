@@ -1,6 +1,6 @@
 # FirewallManager
 
-A comprehensive RESTful API for managing network firewalls, policies, and security rules with many-to-many relationship support.
+A comprehensive RESTful API for managing network firewalls, policies, and security rules with JWT authentication and many-to-many relationship support.
 
 ## 📋 Table of Contents
 
@@ -8,6 +8,7 @@ A comprehensive RESTful API for managing network firewalls, policies, and securi
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [API Documentation](#api-documentation)
+- [Authentication](#authentication)
 - [Database Schema](#database-schema)
 - [Testing](#testing)
 - [Development](#development)
@@ -17,12 +18,16 @@ A comprehensive RESTful API for managing network firewalls, policies, and securi
 
 ## ✨ Features
 
+- **JWT Authentication** for secure API access
 - **Complete CRUD Operations** for Firewalls, Policies, and Rules
+- **User Management** with registration and login
 - **Many-to-Many Relationships** between entities
 - **RESTful API** following best practices
 - **SQLAlchemy ORM** with SQLite database
 - **Comprehensive Test Suite** with pytest
 - **Input Validation** and error handling
+- **Audit Trail** tracking created_by and last_modified_by
+- **Token Blacklist** for secure logout
 - **Health Check Endpoint** for monitoring
 
 ## 🏗️ Architecture
@@ -36,6 +41,7 @@ FirewallManager/
 │   ├── config.py                   # Configuration settings
 │   ├── endpoints/                  # API endpoints
 │   │   ├── __init__.py
+│   │   ├── auth.py                 # Authentication endpoints
 │   │   ├── firewalls.py            # Firewall CRUD endpoints
 │   │   ├── firewall_policies.py    # Policy CRUD endpoints
 │   │   ├── firewall_rules.py       # Rule CRUD endpoints
@@ -46,7 +52,9 @@ FirewallManager/
 │   │   ├── associations.py         # Many-to-many association tables
 │   │   ├── firewall.py             # Firewall model
 │   │   ├── firewall_policy.py      # Policy model
-│   │   └── firewall_rule.py        # Rule model
+│   │   ├── firewall_rule.py        # Rule model
+│   │   ├── user.py                 # User model
+│   │   └── token_block_list.py     # Token blacklist model
 │   └── utils/                      # Utility functions
 │       ├── __init__.py
 │       ├── firewall_utils.py       # Firewall helper functions
@@ -67,7 +75,7 @@ FirewallManager/
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10.12+
 - Poetry (for dependency management)
 
 ### Setup Steps
@@ -91,13 +99,25 @@ FirewallManager/
    poetry shell
    ```
 
-4. **Initialize the database:**
+4. **Set environment variables:**
+
+   Create a `.env` file in the root directory:
 
    ```bash
-   poetry run python -c "from src.app import app, db; app.app_context().push(); db.create_all()"
+   FLASK_ENV=development
+   FLASK_DEBUG=1
+   DATABASE_URI=sqlite:///instance/firewall_manager.db
+   SECRET_KEY=your-secret-key-here
+   JWT_SECRET_KEY=your-jwt-secret-key-here
    ```
 
-5. **Run the application:**
+5. **Initialize the database:**
+
+   ```bash
+   poetry run python -c "from src.app import create_app; from src.models.base import db; app = create_app(); app.app_context().push(); db.create_all()"
+   ```
+
+6. **Run the application:**
 
    ```bash
    poetry run python src/app.py
@@ -115,47 +135,115 @@ http://localhost:5000/api
 
 ### Endpoints
 
+#### 🔐 Authentication
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/auth/register` | Register a new user | No |
+| POST | `/auth/login` | Login and get tokens | No |
+| POST | `/auth/refresh` | Refresh access token | Yes (Refresh) |
+| POST | `/auth/logout` | Logout and blacklist token | Yes |
+| POST | `/auth/logout_refresh` | Logout refresh token | Yes (Refresh) |
+
 #### 🔥 Firewalls
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/firewalls` | List all firewalls |
-| POST | `/firewalls` | Create a new firewall |
-| GET | `/firewalls/<hostname>` | Get firewall by hostname |
-| PUT | `/firewalls/<hostname>` | Update firewall (replaces policies) |
-| PATCH | `/firewalls/<hostname>/policies` | Add policies to firewall |
-| DELETE | `/firewalls/<hostname>` | Delete firewall |
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/firewalls` | List all firewalls | Yes |
+| POST | `/firewalls` | Create a new firewall | Yes |
+| PUT | `/firewalls/<id>` | Update firewall (replaces policies) | Yes |
+| PATCH | `/firewalls/<id>/policies` | Add policies to firewall | Yes |
+| DELETE | `/firewalls/<id>/policies/<policy_id>` | Remove policy from firewall | Yes |
+| DELETE | `/firewalls/<id>` | Delete firewall | Yes |
 
 #### 📋 Policies
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/firewall_policies` | List all policies |
-| POST | `/firewall_policies` | Create a new policy |
-| GET | `/firewall_policies/<id>` | Get policy by ID |
-| PUT | `/firewall_policies/<id>` | Update policy (replaces rules) |
-| PATCH | `/firewall_policies/<id>/rules` | Add rules to policy |
-| DELETE | `/firewall_policies/<id>` | Delete policy |
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/firewall_policies` | List all policies | Yes |
+| POST | `/firewall_policies` | Create a new policy | Yes |
+| PUT | `/firewall_policies/<id>` | Update policy (replaces rules) | Yes |
+| PATCH | `/firewall_policies/<id>/rules` | Add rules to policy | Yes |
+| DELETE | `/firewall_policies/<id>/rules/<rule_id>` | Remove rule from policy | Yes |
+| DELETE | `/firewall_policies/<id>` | Delete policy | Yes |
 
 #### 🛡️ Rules
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/firewall_rules` | List all rules |
-| POST | `/firewall_rules` | Create a new rule |
-| GET | `/firewall_rules/<id>` | Get rule by ID |
-| PUT | `/firewall_rules/<id>` | Update rule |
-| DELETE | `/firewall_rules/<id>` | Delete rule |
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/firewall_rules` | List all rules | Yes |
+| POST | `/firewall_rules` | Create a new rule | Yes |
+| PUT | `/firewall_rules/<id>` | Update rule | Yes |
+| DELETE | `/firewall_rules/<id>` | Delete rule | Yes |
 
 #### 🏥 Health
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/health` | Health check | No |
+
+## 🔐 Authentication
+
+The API uses JWT (JSON Web Tokens) for authentication. All endpoints except `/health`, `/auth/register`, and `/auth/login` require authentication.
+
+### Registration
+
+```bash
+curl -X POST http://localhost:5000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "SecurePassword123!",
+    "email": "admin@example.com"
+  }'
+```
+
+### Login
+
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "SecurePassword123!"
+  }'
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+### Using the Token
+
+Include the access token in the Authorization header for protected endpoints:
+
+```bash
+curl -X GET http://localhost:5000/api/firewalls \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
+```
 
 ## 🗄️ Database Schema
 
 ### Models
+
+#### User
+
+```python
+{
+    "id": "integer (primary key)",
+    "username": "string (unique)",
+    "password": "string (hashed)",
+    "email": "string (unique)",
+    "roles": "string",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+}
+```
 
 #### Firewall
 
@@ -172,7 +260,8 @@ http://localhost:5000/api
     "country": "string",
     "city": "string",
     "created_at": "datetime",
-    "updated_at": "datetime"
+    "updated_at": "datetime",
+    "policies": "relationship (many-to-many)"
 }
 ```
 
@@ -189,7 +278,9 @@ http://localhost:5000/api
     "created_by": "string",
     "last_modified_by": "string",
     "created_at": "datetime",
-    "updated_at": "datetime"
+    "updated_at": "datetime",
+    "firewalls": "relationship (many-to-many)",
+    "rules": "relationship (many-to-many)"
 }
 ```
 
@@ -209,7 +300,19 @@ http://localhost:5000/api
     "created_by": "string",
     "last_modified_by": "string",
     "created_at": "datetime",
-    "updated_at": "datetime"
+    "updated_at": "datetime",
+    "policies": "relationship (many-to-many)"
+}
+```
+
+#### TokenBlocklist
+
+```python
+{
+    "id": "integer (primary key)",
+    "jti": "string (unique)",
+    "type": "string",
+    "created_at": "datetime"
 }
 ```
 
@@ -217,6 +320,7 @@ http://localhost:5000/api
 
 - **Firewalls ↔ Policies**: Many-to-Many
 - **Policies ↔ Rules**: Many-to-Many
+- **User → Created/Modified**: One-to-Many (audit trail)
 
 ## 🧪 Testing
 
@@ -244,16 +348,34 @@ poetry run pytest tests/test_firewall_endpoints.py
 poetry run pytest -v
 ```
 
+### Test Coverage Areas
+
+- Authentication and authorization
+- CRUD operations for all entities
+- Many-to-many relationship management
+- Input validation
+- Error handling
+- Token management
+
 ## 💻 Development
 
 ### Environment Variables
 
-Create a `.env` file for custom configuration:
+Create a `.env` file for configuration:
 
 ```bash
+# Flask Configuration
 FLASK_ENV=development
 FLASK_DEBUG=1
+
+# Database
 DATABASE_URI=sqlite:///instance/firewall_manager.db
+
+# Security
+SECRET_KEY=your-secret-key-here
+JWT_SECRET_KEY=your-jwt-secret-key-here
+JWT_ACCESS_TOKEN_EXPIRES=3600  # 1 hour in seconds
+JWT_REFRESH_TOKEN_EXPIRES=2592000  # 30 days in seconds
 ```
 
 ### Database Management
@@ -262,7 +384,7 @@ DATABASE_URI=sqlite:///instance/firewall_manager.db
 
 ```bash
 rm instance/firewall_manager.db
-poetry run python -c "from src.app import app, db; app.app_context().push(); db.create_all()"
+poetry run python -c "from src.app import create_app; from src.models.base import db; app = create_app(); app.app_context().push(); db.create_all()"
 ```
 
 #### Access database shell
@@ -271,13 +393,81 @@ poetry run python -c "from src.app import app, db; app.app_context().push(); db.
 sqlite3 instance/firewall_manager.db
 ```
 
+#### View tables
+
+```sql
+.tables
+.schema firewalls
+SELECT * FROM firewalls;
+```
+
 ## 📝 Examples
 
-### Create a Firewall with Policies
+### Complete Workflow Example
+
+#### 1. Register and Login
+
+```bash
+# Register a new user
+curl -X POST http://localhost:5000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "SecurePassword123!",
+    "email": "admin@example.com"
+  }'
+
+# Login to get tokens
+TOKEN=$(curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "SecurePassword123!"
+  }' | jq -r '.access_token')
+```
+
+#### 2. Create Rules
+
+```bash
+# Create a rule for SSH
+curl -X POST http://localhost:5000/api/firewall_rules \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Allow SSH",
+    "description": "Allow SSH traffic",
+    "action": "allow",
+    "source_ip": "10.0.0.0/24",
+    "destination_ip": "192.168.1.10",
+    "protocol": "tcp",
+    "port": "22",
+    "is_active": true
+  }'
+```
+
+#### 3. Create Policy with Rules
+
+```bash
+# Create a policy
+curl -X POST http://localhost:5000/api/firewall_policies \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Server Management Policy",
+    "description": "Policy for server management",
+    "policy_type": "inbound",
+    "is_active": true,
+    "priority": 1,
+    "rules_id": [1]
+  }'
+```
+
+#### 4. Create Firewall with Policies
 
 ```bash
 # Create a firewall
 curl -X POST http://localhost:5000/api/firewalls \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Main Firewall",
@@ -288,42 +478,26 @@ curl -X POST http://localhost:5000/api/firewalls \
     "os_version": "9.2",
     "country": "USA",
     "city": "New York",
-    "policies_ids": [1, 2]
+    "policies_ids": [1]
   }'
 ```
 
-### Create a Policy with Rules
-
-```bash
-# Create a policy
-curl -X POST http://localhost:5000/api/firewall_policies \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Web Server Policy",
-    "description": "Policy for web servers",
-    "policy_type": "inbound",
-    "is_active": true,
-    "priority": 1,
-    "rules_ids": [1, 2, 3]
-  }'
-```
-
-### Add Policies to Existing Firewall (PATCH)
+#### 5. Add More Policies (PATCH)
 
 ```bash
 # Add policies without removing existing ones
-curl -X PATCH http://localhost:5000/api/firewalls/fw-main-01/policies \
+curl -X PATCH http://localhost:5000/api/firewalls/1/policies \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"policies_ids": [3, 4]}'
+  -d '{"policies_ids": [2, 3]}'
 ```
 
-### Replace All Firewall Policies (PUT)
+#### 6. Logout
 
 ```bash
-# Replace all existing policies
-curl -X PUT http://localhost:5000/api/firewalls/fw-main-01 \
-  -H "Content-Type: application/json" \
-  -d '{"policies_ids": [5, 6]}'
+# Logout and blacklist token
+curl -X POST http://localhost:5000/api/auth/logout \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## 🤝 Contributing
@@ -340,6 +514,14 @@ curl -X PUT http://localhost:5000/api/firewalls/fw-main-01 \
 - Use type hints where appropriate
 - Write docstrings for all functions
 - Maintain test coverage above 80%
+- Include tests for new features
+
+### Testing Guidelines
+
+- Write unit tests for all new functions
+- Test both success and failure cases
+- Mock external dependencies
+- Test authentication and authorization
 
 ## 📄 License
 
@@ -348,6 +530,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 Acknowledgments
 
 - Flask framework for the web foundation
+- Flask-JWT-Extended for JWT authentication
 - SQLAlchemy for ORM capabilities
 - Poetry for dependency management
 - Pytest for testing framework
@@ -357,5 +540,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 For questions or support, please open an issue in the GitHub repository.
 
 ---
-**Version:** 1.0.0  
-**Last Updated:** September 2025
+**Version:** 1.1.0  
+**Last Updated:** September 2025  
+**Author:** Your Name
