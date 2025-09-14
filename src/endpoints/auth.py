@@ -16,9 +16,11 @@ try:
 except ImportError:
     from models.user import User
     from models.token_block_list import TokenBlocklist
-    from src import db
+    from models.base import db
+
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+
 
 def register_jwt(app):
     """
@@ -26,17 +28,20 @@ def register_jwt(app):
     """
     jwt = JWTManager(app)
 
+
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header: dict, jwt_payload: dict):
         jti = jwt_payload['jti']
         return TokenBlocklist.query.filter_by(jti=jti).first() is not None
 
+
     @jwt.expired_token_loader
-    def expired_token_callback(jwt_header, jwt_payload):  # Fixed function name
+    def expired_token_callback(jwt_header, jwt_payload):
         return jsonify({
             'msg': 'The token has expired',
             'error': 'token_expired'
         }), 401
+
 
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
@@ -45,12 +50,14 @@ def register_jwt(app):
             'error': 'invalid_token'
         }), 422
 
+
     @jwt.unauthorized_loader
     def missing_token_callback(error):
         return jsonify({
             'msg': 'Request does not contain an access token',
             'error': 'authorization_required'
         }), 401
+
 
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
@@ -60,6 +67,7 @@ def register_jwt(app):
         }), 401
 
     return jwt
+
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -123,6 +131,7 @@ def login():
         'user': user.to_dict()
     }), 200
 
+
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
@@ -144,6 +153,7 @@ def refresh():
         'access_token': new_access_token
     }), 200
 
+
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
@@ -159,6 +169,7 @@ def logout():
     return jsonify({
         'msg': 'Token revoked'
     }), 200
+
 
 @auth_bp.route('/logout_refresh', methods=['POST'])
 @jwt_required(refresh=True)
@@ -176,10 +187,12 @@ def logout_refresh():
         'msg': 'Refresh token revoked'
     }), 200
 
+
 def role_required(role):
     """Decorator to check if the user has the required role."""
     from functools import wraps
     from flask_jwt_extended import verify_jwt_in_request, get_jwt
+
 
     def wrapper(fn):
         @wraps(fn)
@@ -191,6 +204,7 @@ def role_required(role):
                 return jsonify({
                     'msg': 'Insufficient permissions'
                 }), 403
+                
             return fn(*args, **kwargs)
         return decorator
     return wrapper

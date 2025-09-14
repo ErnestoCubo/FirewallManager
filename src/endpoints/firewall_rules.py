@@ -10,9 +10,11 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from typing import Tuple, Dict, Any
 
 try:
+    from src.validators.input_validators import firewall_rules_validator, validate_rule_schema
     from src.models.firewall_rule import db, FirewallRule
     from src.utils.firewall_rules_utils import update_firewall_rule_fields
 except ImportError:
+    from validators.input_validators import firewall_rules_validator, validate_rule_schema
     from models.firewall_rule import db, FirewallRule
     from utils.firewall_rules_utils import update_firewall_rule_fields
 
@@ -74,12 +76,11 @@ def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
         data = request.get_json()
         user_identity = get_jwt_identity()
 
-        required_fields = ["name", "action", "source_ip", "destination_ip", "protocol", "port", "last_modified_by"]
-        for field in required_fields:
-            if field not in data:
-                return jsonify({
-                    "message": f"Missing required field: {field}"
-                }), 400
+        is_valid, validation_msg = firewall_rules_validator(data)
+        if not is_valid:
+            return jsonify({
+                "message": validation_msg
+            }), 400
 
         new_rule = FirewallRule(
             name=data.get("name"),
@@ -91,7 +92,7 @@ def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
             port=data.get("port"),
             is_active=data.get("is_active", True),
             created_by=user_identity,
-            last_modified_by=data.get("last_modified_by"),
+            last_modified_by=user_identity,
         )
 
         db.session.add(new_rule)
@@ -137,7 +138,15 @@ def update_firewall_rule(rule_id: int) -> Tuple[Dict[str, Any], int]:
             }), 404
 
         data = request.get_json()
+        is_valid, validation_msg = validate_rule_schema(data)
+        if not is_valid:
+            return jsonify({
+                "message": validation_msg
+            }), 400
+            
         update_firewall_rule_fields(rule, data)
+        user_identity = get_jwt_identity()
+        rule.last_modified_by = user_identity
         db.session.commit()
 
         return jsonify({

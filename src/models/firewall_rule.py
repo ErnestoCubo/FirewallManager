@@ -28,7 +28,7 @@ class FirewallRule(db.Model):
         source_ip (str): Source IP address or range.
         destination_ip (str): Destination IP address or range.
         protocol (str): Network protocol (e.g., TCP, UDP).
-        port (str): Port number or range.
+        port (int): Port number.
         is_active (bool): Status of the rule (active/inactive).
         created_by (str): User who created the rule.
         last_modified_by (str): User who last modified the rule.
@@ -55,7 +55,7 @@ class FirewallRule(db.Model):
     source_ip = db.Column(db.String(45), nullable=True)
     destination_ip = db.Column(db.String(45), nullable=True)
     protocol = db.Column(db.String(20), nullable=True)
-    port = db.Column(db.String(20), nullable=True)
+    port = db.Column(db.Integer, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.String(100), nullable=True)
     last_modified_by = db.Column(db.String(100), nullable=True)

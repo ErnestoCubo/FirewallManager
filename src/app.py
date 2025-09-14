@@ -17,13 +17,13 @@ try:
     from src.config import Config
 except ImportError:
     from models.base import db
+    from endpoints.auth import auth_bp, register_jwt
     from endpoints.firewalls import firewalls_bp
     from endpoints.firewall_policies import firewall_policies_bp
     from endpoints.firewall_rules import firewall_rules_bp
     from endpoints.health import health_bp
     from config import Config
 
-app = Flask(__name__)
 
 def create_app():
     """
@@ -45,6 +45,7 @@ def create_app():
     app.register_blueprint(health_bp)
 
     return app
+
 
 if __name__ == '__main__':
     app = create_app()

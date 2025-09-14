@@ -12,10 +12,12 @@ from typing import Tuple, Dict, Any
 try:
     from src.models.firewall_policy import db, FirewallPolicy
     from src.models.firewall_rule import FirewallRule
+    from src.validators.input_validators import firewall_policies_validator, validate_policy_schema
     from src.utils.firewall_policies_utils import update_firewall_policy_fields, update_firewall_policy_unique_field, update_policy_rules
 except ImportError:
     from models.firewall_policy import db, FirewallPolicy
     from models.firewall_rule import FirewallRule
+    from validators.input_validators import firewall_policies_validator, validate_policy_schema
     from utils.firewall_policies_utils import update_firewall_policy_fields, update_firewall_policy_unique_field, update_policy_rules
 
 firewall_policies_bp = Blueprint('firewall_policies', __name__, url_prefix='/api')
@@ -72,20 +74,19 @@ def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
     """
     try:
         data = request.get_json()
-        user = get_jwt_identity()
-
-        required_fields = ["name", "policy_type", "is_active", "priority"]
-        for field in required_fields:
-            if field not in data:
-                return jsonify({
-                    "message": f"Missing required field: {field}"
-                }), 400
+        is_valid, validation_message = firewall_policies_validator(data)
+        if not is_valid:
+            return jsonify({
+                "message": validation_message
+            }), 400
 
         policy_name = FirewallPolicy.query.filter_by(name=data['name']).first()
         if policy_name:
             return jsonify({
                 "message": f"Firewall policy with this name {data['name']} already exists"
             }), 400
+            
+        user = get_jwt_identity()
 
         new_policy = FirewallPolicy(
             name=data.get("name"),
@@ -146,12 +147,10 @@ def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
             }), 404
 
         data = request.get_json()
-        data['last_modified_by'] = get_jwt_identity()
-
-        if not data:
+        is_valid, validation_message = validate_policy_schema(data)
+        if not is_valid:
             return jsonify({
-                "message": "No data provided for update",
-                "policy": policy.to_dict()
+                "message": validation_message
             }), 400
 
         if not update_firewall_policy_unique_field(policy, data, 'name'):
@@ -159,6 +158,7 @@ def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
                 "message": f"Firewall policy with this name {data['name']} already exists"
             }), 400
 
+        data['last_modified_by'] = get_jwt_identity()
         update_firewall_policy_fields(policy, data)
         db.session.commit()
 
@@ -204,7 +204,6 @@ def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
             }), 404
 
         data = request.get_json()
-
         if not data or "rules_id" not in data:
             return jsonify({
                 "message": "No rules_id provided to add to policy",
@@ -212,7 +211,7 @@ def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
             }), 400
 
         update_policy_rules(policy, data)
-        data['last_modified_by'] = get_jwt_identity()
+        policy.last_modified_by = get_jwt_identity()
         db.session.commit()
 
         return jsonify({
