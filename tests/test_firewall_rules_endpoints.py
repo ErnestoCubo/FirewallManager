@@ -1,11 +1,15 @@
 import pytest
 import json
+from src.models.user import User
+from src.models.base import db
 
 def get_auth_headers(client, sample_user):
     """Helper function to get authentication headers"""
     # Register user
     client.post("/api/auth/register", data=json.dumps(sample_user), content_type="application/json")
-    
+    user = User.query.filter_by(id=1).first()
+    user.role = "admin"
+    db.session.commit()
     # Login to get token
     login_response = client.post("/api/auth/login", data=json.dumps({"username": sample_user["username"], "password": sample_user["password"]}), content_type="application/json")
 

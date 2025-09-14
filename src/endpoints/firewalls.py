@@ -18,6 +18,7 @@ try:
         update_firewall_unique_field,
         update_firewall_fields
     )
+    from src.rbac.role_based_access_control import role_required
 except ImportError:
     from models.firewall import db, Firewall
     from models.firewall_policy import FirewallPolicy
@@ -26,6 +27,7 @@ except ImportError:
         update_firewall_unique_field,
         update_firewall_fields
     )
+    from rbac.role_based_access_control import role_required
 
 firewalls_bp = Blueprint('firewalls', __name__, url_prefix='/api')
 
@@ -34,6 +36,7 @@ FIREWALL_WITH_HOSTNAME_EXISTS = "Firewall with this hostname already exists"
 
 @firewalls_bp.route('/firewalls', methods=["GET"])
 @jwt_required()
+@role_required('user', 'read_firewall')
 def get_firewalls() -> Tuple[Dict[str, Any], int]:
     """
     Returns a list of all firewall devices in the system with their
@@ -59,6 +62,7 @@ def get_firewalls() -> Tuple[Dict[str, Any], int]:
 
 @firewalls_bp.route('/firewalls', methods=["POST"])
 @jwt_required()
+@role_required('operator', 'create_firewall')
 def create_firewall() -> Tuple[Dict[str, Any], int]:
     """
     Creates a new firewall with the provided information and optionally
@@ -138,6 +142,7 @@ def create_firewall() -> Tuple[Dict[str, Any], int]:
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>', methods=["PUT"])
 @jwt_required()
+@role_required('operator', 'update_firewall')
 def update_firewall(firewall_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Updates firewall information and replaces all policy associations
@@ -205,6 +210,7 @@ def update_firewall(firewall_id: int) -> Tuple[Dict[str, Any], int]:
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>/policies', methods=["PATCH"])
 @jwt_required()
+@role_required('operator', 'add_policy_to_firewall')
 def patch_firewall_policies(firewall_id: int) -> Tuple[Dict[str, Any], int]:
     """
     This endpoint performs a partial update, adding new policy associations
@@ -235,7 +241,7 @@ def patch_firewall_policies(firewall_id: int) -> Tuple[Dict[str, Any], int]:
 
         data = request.get_json()
 
-        if not data or "policies_ids" not in data:
+        if not data or not data.get("policies_ids"):
             return jsonify({
                 "message": "No policies_ids provided for update",
                 "firewall": firewall.to_dict()
@@ -258,6 +264,7 @@ def patch_firewall_policies(firewall_id: int) -> Tuple[Dict[str, Any], int]:
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>/policies/<int:policy_id>', methods=["DELETE"])
 @jwt_required()
+@role_required('operator', 'remove_policy_from_firewall')
 def remove_firewall_policy(firewall_id: int, policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Removes a specific policy association from a firewall.
@@ -305,6 +312,7 @@ def remove_firewall_policy(firewall_id: int, policy_id: int) -> Tuple[Dict[str, 
 
 @firewalls_bp.route('/firewalls/<int:firewall_id>', methods=["DELETE"])
 @jwt_required()
+@role_required('operator', 'delete_firewall')
 def delete_firewall(firewall_id: int):
     """
     Removes a firewall and all its policy associations from the system.

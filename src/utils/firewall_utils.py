@@ -4,6 +4,7 @@ Firewall utility functions.
 This module provides helper functions for firewall operations including
 field updates and policy associations.
 """
+from flask import jsonify
 from typing import Tuple, Dict, Any
 
 try:
@@ -13,7 +14,7 @@ except ImportError:
     from models.firewall import Firewall
     from models.firewall_policy import FirewallPolicy
 
-def set_firewall_policies(firewall: Firewall, data: Dict[str, Any]) -> None:
+def set_firewall_policies(firewall: Firewall, data: Dict[str, Any]) -> Tuple[None, None] | Tuple[Dict[str, str], int]:
     """
     This function manages the many-to-many relationship between firewalls
     and policies. It adds new policies while preserving existing relationships.
@@ -25,6 +26,11 @@ def set_firewall_policies(firewall: Firewall, data: Dict[str, Any]) -> None:
     policies_ids = data.get("policies_ids", [])
     if policies_ids:
         policies = FirewallPolicy.query.filter(FirewallPolicy.id.in_(policies_ids)).all()
+        if not policies:
+            return jsonify({
+                "message": "One or more policies not found."
+            }), 404
+            
         for policy in policies:
             if policy not in firewall.policies:
                 firewall.policies.append(policy)

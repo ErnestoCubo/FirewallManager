@@ -12,11 +12,15 @@ from typing import Tuple, Dict, Any
 try:
     from src.validators.input_validators import firewall_rules_validator, validate_rule_schema
     from src.models.firewall_rule import db, FirewallRule
+    from src.models.user import User
     from src.utils.firewall_rules_utils import update_firewall_rule_fields
+    from src.rbac.role_based_access_control import role_required
 except ImportError:
     from validators.input_validators import firewall_rules_validator, validate_rule_schema
     from models.firewall_rule import db, FirewallRule
+    from models.user import User
     from utils.firewall_rules_utils import update_firewall_rule_fields
+    from rbac.role_based_access_control import role_required
 
 
 firewall_rules_bp = Blueprint('firewall_rules', __name__, url_prefix='/api')
@@ -24,6 +28,7 @@ firewall_rules_bp = Blueprint('firewall_rules', __name__, url_prefix='/api')
 
 @firewall_rules_bp.route('/firewall_rules', methods=['GET'])
 @jwt_required()
+@role_required('user', 'read_rule')
 def get_firewall_rules() -> Tuple[Dict[str, Any], int]:
     """
     Returns a list of all firewall rules in the system.
@@ -49,6 +54,7 @@ def get_firewall_rules() -> Tuple[Dict[str, Any], int]:
 
 @firewall_rules_bp.route('/firewall_rules', methods=['POST'])
 @jwt_required()
+@role_required('operator', 'create_rule')
 def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
     """
     Create a new firewall rule with the provided information.
@@ -74,7 +80,8 @@ def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
     """
     try:
         data = request.get_json()
-        user_identity = get_jwt_identity()
+        user = User.query.filter_by(id=get_jwt_identity()).first()
+
 
         is_valid, validation_msg = firewall_rules_validator(data)
         if not is_valid:
@@ -91,8 +98,8 @@ def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
             protocol=data.get("protocol"),
             port=data.get("port"),
             is_active=data.get("is_active", True),
-            created_by=user_identity,
-            last_modified_by=user_identity,
+            created_by=user.username,
+            last_modified_by=user.username,
         )
 
         db.session.add(new_rule)
@@ -112,6 +119,7 @@ def create_firewall_rule() -> Tuple[Dict[str, Any], int]:
 
 @firewall_rules_bp.route('/firewall_rules/<int:rule_id>', methods=['PUT'])
 @jwt_required()
+@role_required('operator', 'update_rule')
 def update_firewall_rule(rule_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Update an existing firewall rule with the provided information.
@@ -146,7 +154,7 @@ def update_firewall_rule(rule_id: int) -> Tuple[Dict[str, Any], int]:
             
         update_firewall_rule_fields(rule, data)
         user_identity = get_jwt_identity()
-        rule.last_modified_by = user_identity
+        rule.last_modified_by = User.query.filter_by(id=user_identity).first().username
         db.session.commit()
 
         return jsonify({
@@ -163,6 +171,7 @@ def update_firewall_rule(rule_id: int) -> Tuple[Dict[str, Any], int]:
 
 @firewall_rules_bp.route('/firewall_rules/<int:rule_id>', methods=['DELETE'])
 @jwt_required()
+@role_required('operator', 'delete_rule')
 def delete_firewall_rule(rule_id: int):
     """
     Delete a firewall rule by its ID.

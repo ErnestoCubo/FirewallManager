@@ -1,3 +1,10 @@
+"""
+Authentication endpoints module.
+
+This module provides endpoints for user registration, login, token refresh,
+and logout using JWT for authentication and authorization.
+"""
+
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import (
@@ -7,12 +14,14 @@ from flask_jwt_extended import (
     create_refresh_token,
     get_jwt_identity,
     get_jwt,
+    verify_jwt_in_request,
 )
 
 try:
     from src.models.base import db
     from src.models.user import User
     from src.models.token_block_list import TokenBlocklist
+    from src.validators.input_validators import user_validator
 except ImportError:
     from models.user import User
     from models.token_block_list import TokenBlocklist
@@ -25,6 +34,12 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 def register_jwt(app):
     """
     Initialize JWT manager and configure callbacks.
+
+    Args:
+        app (Flask): The Flask application instance.
+
+    Returns:
+        JWTManager: The initialized JWT manager.
     """
     jwt = JWTManager(app)
 
@@ -73,16 +88,21 @@ def register_jwt(app):
 def register():
     """
     Register a new user.
+
+    Expects JSON with 'username', 'password', 'email', and optional 'roles'.
+    Returns:
+        JSON response with user details or error message.
     """
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
     email = data.get('email')
-    roles = data.get('roles', 'user')
+    role = data.get('role', 'user')
 
-    if not username or not password or not email:
+    validated, message = user_validator(data)
+    if not validated:
         return jsonify({
-            'msg': 'Missing username, password, or email'
+            'msg': message
         }), 400
 
     if User.query.filter((User.username == username) | (User.email == email)).first():
@@ -91,7 +111,7 @@ def register():
         }), 409
 
     password_hash = generate_password_hash(password, method='scrypt', salt_length=8)
-    new_user = User(username=username, password_hash=password_hash, email=email, roles=roles)
+    new_user = User(username=username, password_hash=password_hash, email=email, role=role)
     db.session.add(new_user)
     db.session.commit()
 
@@ -105,6 +125,11 @@ def register():
 def login():
     """
     Authenticate user and return tokens.
+
+    Expects JSON with 'username' and 'password'.
+
+    Returns:
+        JSON response with access and refresh tokens or error message.
     """
     data = request.get_json()
     username = data.get('username')
@@ -121,7 +146,7 @@ def login():
             'msg': 'Bad username or password'
         }), 401
 
-    additional_claims = {'roles': user.roles}
+    additional_claims = {'role': user.role}
     access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=str(user.id))
 
@@ -137,6 +162,9 @@ def login():
 def refresh():
     """
     Refresh access token.
+
+    Returns:
+        JSON response with new access token or error message.
     """
     current_user_id = get_jwt_identity()
     user = User.query.filter_by(id=int(current_user_id)).first()
@@ -146,7 +174,7 @@ def refresh():
             'msg': 'User not found'
         }), 404
 
-    additional_claims = {'roles': user.roles}
+    additional_claims = {'role': user.role}
     new_access_token = create_access_token(identity=str(current_user_id), additional_claims=additional_claims)
 
     return jsonify({
@@ -157,7 +185,12 @@ def refresh():
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    """Revoke the current user's access token."""
+    """
+    Revoke the current user's access token.
+    
+    Returns:
+        JSON response confirming token revocation.
+    """
     jti = get_jwt()['jti']
     user_id = get_jwt_identity()
     token_type = get_jwt().get('type', 'access')
@@ -174,7 +207,12 @@ def logout():
 @auth_bp.route('/logout_refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def logout_refresh():
-    """Revoke the current user's refresh token."""
+    """
+    Revoke the current user's refresh token.
+        
+    Returns:
+        JSON response confirming refresh token revocation.
+    """
     jti = get_jwt()['jti']
     user_id = get_jwt_identity()
     token_type = get_jwt().get('type', 'refresh')
@@ -186,25 +224,3 @@ def logout_refresh():
     return jsonify({
         'msg': 'Refresh token revoked'
     }), 200
-
-
-def role_required(role):
-    """Decorator to check if the user has the required role."""
-    from functools import wraps
-    from flask_jwt_extended import verify_jwt_in_request, get_jwt
-
-
-    def wrapper(fn):
-        @wraps(fn)
-        @jwt_required()
-        def decorator(*args, **kwargs):
-            claims = get_jwt()
-            user_roles = claims.get('roles', [])
-            if role not in user_roles:
-                return jsonify({
-                    'msg': 'Insufficient permissions'
-                }), 403
-                
-            return fn(*args, **kwargs)
-        return decorator
-    return wrapper

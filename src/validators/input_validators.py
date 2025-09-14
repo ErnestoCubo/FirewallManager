@@ -5,6 +5,29 @@ NO_INPUT_DATA_ERROR = "No input data provided"
 NAME_MUST_BE_STRING_ERROR = "name must be a string"
 DESCRIPTION_MUST_BE_STRING_ERROR = "description must be a string"
 
+def user_validator(data: dict) -> tuple[bool, str]:
+    required_fields = ["username", "password", "email"]
+
+    if not data:
+        return False, NO_INPUT_DATA_ERROR
+
+    for field in required_fields:
+        if field not in data:
+            return False, f"Missing required field: {field}"
+
+    if not isinstance(data.get("username", ""), str):
+        return False, "username must be a string"
+
+    if not isinstance(data.get("password", ""), str):
+        return False, "password must be a string"
+
+    if not isinstance(data.get("email", ""), str):
+        return False, "email must be a string"
+    elif not re.match(r"[^@]+@[^@]+\.[^@]+", data.get("email", "")):
+        return False, "email must be a valid email address"
+
+    return True, ""
+
 def firewall_validator(data: dict) -> tuple[bool, str]:
     required_fields = ["name", "hostname", "ip_address", "vendor", "model", "os_version"]
 

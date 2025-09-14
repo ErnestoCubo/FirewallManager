@@ -12,13 +12,17 @@ from typing import Tuple, Dict, Any
 try:
     from src.models.firewall_policy import db, FirewallPolicy
     from src.models.firewall_rule import FirewallRule
+    from src.models.user import User
     from src.validators.input_validators import firewall_policies_validator, validate_policy_schema
     from src.utils.firewall_policies_utils import update_firewall_policy_fields, update_firewall_policy_unique_field, update_policy_rules
+    from src.rbac.role_based_access_control import role_required
 except ImportError:
     from models.firewall_policy import db, FirewallPolicy
     from models.firewall_rule import FirewallRule
+    from models.user import User
     from validators.input_validators import firewall_policies_validator, validate_policy_schema
     from utils.firewall_policies_utils import update_firewall_policy_fields, update_firewall_policy_unique_field, update_policy_rules
+    from rbac.role_based_access_control import role_required
 
 firewall_policies_bp = Blueprint('firewall_policies', __name__, url_prefix='/api')
 
@@ -26,6 +30,7 @@ FIREWALL_POLICY_NOT_FOUND = "Firewall policy not found"
 
 @firewall_policies_bp.route('/firewall_policies', methods=["GET"])
 @jwt_required()
+@role_required('user', 'read_policy')
 def get_firewall_policies() -> Tuple[Dict[str, Any], int]:
     """
     Returns a list of all firewall policies in the system with their associated rules.
@@ -51,6 +56,7 @@ def get_firewall_policies() -> Tuple[Dict[str, Any], int]:
 
 @firewall_policies_bp.route('/firewall_policies', methods=["POST"])
 @jwt_required()
+@role_required('operator', 'create_policy')
 def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
     """
     Creates a new firewall policy with the provided information and optionally
@@ -87,6 +93,7 @@ def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
             }), 400
             
         user = get_jwt_identity()
+        user = User.query.filter_by(id=user).first()
 
         new_policy = FirewallPolicy(
             name=data.get("name"),
@@ -94,8 +101,8 @@ def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
             policy_type=data.get("policy_type"),
             is_active=data.get("is_active", True),
             priority=data.get("priority"),
-            created_by=user,
-            last_modified_by=user,
+            created_by=user.username,
+            last_modified_by=user.username,
         )
 
         # If provided associated rules, add them to the policy
@@ -117,6 +124,7 @@ def create_firewall_policy() -> Tuple[Dict[str, Any], int]:
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["PUT"])
 @jwt_required()
+@role_required('operator', 'update_policy')
 def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Updates an existing firewall policy with the provided information and replaces all rule associations
@@ -158,7 +166,7 @@ def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
                 "message": f"Firewall policy with this name {data['name']} already exists"
             }), 400
 
-        data['last_modified_by'] = get_jwt_identity()
+        data['last_modified_by'] = User.query.filter_by(id=get_jwt_identity()).first().username
         update_firewall_policy_fields(policy, data)
         db.session.commit()
 
@@ -176,6 +184,7 @@ def update_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>/rules', methods=["PATCH"])
 @jwt_required()
+@role_required('operator', 'add_rule_to_policy')
 def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
     This endpoint performs a partial update to an existing firewall policy by adding new rules
@@ -211,7 +220,7 @@ def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
             }), 400
 
         update_policy_rules(policy, data)
-        policy.last_modified_by = get_jwt_identity()
+        policy.last_modified_by = User.query.filter_by(id=get_jwt_identity()).first().username
         db.session.commit()
 
         return jsonify({
@@ -228,6 +237,7 @@ def patch_rules_to_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>/rules/<int:rule_id>', methods=["DELETE"])
 @jwt_required()
+@role_required('operator', 'delete_rule_from_policy')
 def remove_rule_from_policy(policy_id: int, rule_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Remove a specific rule from a firewall policy.
@@ -274,6 +284,7 @@ def remove_rule_from_policy(policy_id: int, rule_id: int) -> Tuple[Dict[str, Any
 
 @firewall_policies_bp.route('/firewall_policies/<int:policy_id>', methods=["DELETE"])
 @jwt_required()
+@role_required('operator', 'delete_policy')
 def delete_firewall_policy(policy_id: int) -> Tuple[Dict[str, Any], int]:
     """
     Removes a firewall policy and its associated rules from the system.

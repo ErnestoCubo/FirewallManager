@@ -238,25 +238,6 @@ def test_user_roles_in_token(client):
     # The roles should be embedded in the token claims
     # We can't easily decode it here without the secret, but we trust it works
 
-def test_register_with_custom_roles(client):
-    """Test registering user with custom roles."""
-    user_with_roles = {
-        "username": "roleuser",
-        "password": "RolePass123!",
-        "email": "roleuser@example.com",
-        "roles": "admin,moderator"
-    }
-    response = client.post('/api/auth/register', data=json.dumps(user_with_roles), content_type='application/json')
-    assert response.status_code == 201
-    
-    # Login and verify roles are preserved
-    login_data = {
-        "username": user_with_roles['username'],
-        "password": user_with_roles['password']
-    }
-    login_response = client.post('/api/auth/login', data=json.dumps(login_data), content_type='application/json')
-    data = json.loads(login_response.data)
-    assert data['user']['roles'] == "admin,moderator"
 
 def test_concurrent_sessions(client, sample_user):
     """Test that multiple login sessions can exist simultaneously."""

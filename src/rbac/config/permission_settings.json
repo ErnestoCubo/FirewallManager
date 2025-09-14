@@ -1,0 +1,79 @@
+{
+    "roles": {
+        "admin": {
+            "hierarchy_level": 3,
+            "permissions": {
+                "create_user": true,
+                "read_user": true,
+                "update_user": true,
+                "delete_user": true,
+                "create_firewall": true,
+                "read_firewall": true,
+                "update_firewall": true,
+                "add_policy_to_firewall": true,
+                "remove_policy_from_firewall": true,
+                "delete_firewall": true,
+                "create_policy": true,
+                "read_policy": true,
+                "update_policy": true,
+                "add_rule_to_policy": true,
+                "delete_rule_from_policy": true,
+                "delete_policy": true,
+                "create_rule": true,
+                "read_rule": true,
+                "update_rule": true,
+                "delete_rule": true
+            }
+        },
+        "operator": {
+            "hierarchy_level": 2,
+            "permissions": {
+                "create_user": false,
+                "read_user": false,
+                "update_user": false,
+                "delete_user": false,
+                "create_firewall": true,
+                "read_firewall": true,
+                "update_firewall": true,
+                "add_policy_to_firewall": true,
+                "remove_policy_from_firewall": true,
+                "delete_firewall": true,
+                "create_policy": true,
+                "read_policy": true,
+                "update_policy": true,
+                "add_rule_to_policy": true,
+                "delete_rule_from_policy": true,
+                "delete_policy": true,
+                "create_rule": true,
+                "read_rule": true,
+                "update_rule": true,
+                "delete_rule": true
+            }
+        },
+        "user": {
+            "hierarchy_level": 1,
+            "permissions": {
+                "create_user": false,
+                "read_user": false,
+                "update_user": false,
+                "delete_user": false,
+                "create_firewall": false,
+                "read_firewall": true,
+                "update_firewall": false,
+                "add_policy_to_firewall": false,
+                "remove_policy_from_firewall": false,
+                "delete_firewall": false,
+                "create_policy": false,
+                "read_policy": true,
+                "update_policy": false,
+                "add_rule_to_policy": false,
+                "delete_rule_from_policy": false,
+                "delete_policy": false,
+                "create_rule": false,
+                "read_rule": true,
+                "update_rule": false,
+                "delete_rule": false
+            }
+        }
+    }
+}
