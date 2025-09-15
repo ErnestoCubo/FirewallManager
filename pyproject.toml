@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "FirewallManager"
-version = "0.1.0"
+version = "1.0.0"
 description = "REST API developed with Flask, Poetry and SQLite to manage firewalls"
 authors = ["Ernesto Cubo <ernestocubo@gmail.com>"]
 license = "MIT"

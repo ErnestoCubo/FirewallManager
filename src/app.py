@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 try:
     from src.models.base import db
+    from src.endpoints.admin import admin_bp
     from src.endpoints.auth import auth_bp, register_jwt
     from src.endpoints.firewalls import firewalls_bp
     from src.endpoints.firewall_policies import firewall_policies_bp
@@ -43,6 +44,7 @@ def create_app():
     app.register_blueprint(firewall_policies_bp)
     app.register_blueprint(firewall_rules_bp)
     app.register_blueprint(health_bp)
+    app.register_blueprint(admin_bp)
 
     return app
 

@@ -90,35 +90,49 @@ def register():
     Register a new user.
 
     Expects JSON with 'username', 'password', 'email', and optional 'roles'.
+
     Returns:
         JSON response with user details or error message.
+
+    Responses:
+        201: User registered successfully.
+        400: Invalid input data.
+        409: Username or email already exists.
+        500: Internal server error.
     """
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    email = data.get('email')
-    role = data.get('role', 'user')
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        role = data.get('role', 'user')
 
-    validated, message = user_validator(data)
-    if not validated:
+        validated, message = user_validator(data)
+        if not validated:
+            return jsonify({
+                'msg': message
+            }), 400
+
+        if User.query.filter((User.username == username) | (User.email == email)).first():
+            return jsonify({
+                'msg': 'Username or email already exists'
+            }), 409
+
+        password_hash = generate_password_hash(password, method='scrypt', salt_length=8)
+        new_user = User(username=username, password_hash=password_hash, email=email, role=role)
+        db.session.add(new_user)
+        db.session.commit()
+
         return jsonify({
-            'msg': message
-        }), 400
-
-    if User.query.filter((User.username == username) | (User.email == email)).first():
+            'msg': 'User registered successfully',
+            'user': new_user.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
         return jsonify({
-            'msg': 'Username or email already exists'
-        }), 409
-
-    password_hash = generate_password_hash(password, method='scrypt', salt_length=8)
-    new_user = User(username=username, password_hash=password_hash, email=email, role=role)
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({
-        'msg': 'User registered successfully',
-        'user': new_user.to_dict()
-    }), 201
+            'msg': 'Internal server error',
+            'error': str(e)
+        }), 500
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -130,31 +144,44 @@ def login():
 
     Returns:
         JSON response with access and refresh tokens or error message.
+
+    Responses:
+        200: Login successful.
+        400: Missing username or password.
+        401: Bad username or password.
+        500: Internal server error.
     """
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
 
-    if not username or not password:
+        if not username or not password:
+            return jsonify({
+                'msg': 'Missing username or password'
+            }), 400
+
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password_hash, password):
+            return jsonify({
+                'msg': 'Bad username or password'
+            }), 401
+
+        additional_claims = {'role': user.role}
+        access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
+        refresh_token = create_refresh_token(identity=str(user.id))
+
         return jsonify({
-            'msg': 'Missing username or password'
-        }), 400
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': user.to_dict()
+        }), 200
 
-    user = User.query.filter_by(username=username).first()
-    if not user or not check_password_hash(user.password_hash, password):
+    except Exception as e:
         return jsonify({
-            'msg': 'Bad username or password'
-        }), 401
-
-    additional_claims = {'role': user.role}
-    access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
-    refresh_token = create_refresh_token(identity=str(user.id))
-
-    return jsonify({
-        'access_token': access_token,
-        'refresh_token': refresh_token,
-        'user': user.to_dict()
-    }), 200
+            'msg': 'Internal server error',
+            'error': str(e)
+        }), 500
 
 
 @auth_bp.route('/refresh', methods=['POST'])
@@ -165,21 +192,34 @@ def refresh():
 
     Returns:
         JSON response with new access token or error message.
+
+    Responses:
+        200: Token refreshed successfully.
+        401: Invalid or expired refresh token.
+        404: User not found.
+        500: Internal server error.
     """
-    current_user_id = get_jwt_identity()
-    user = User.query.filter_by(id=int(current_user_id)).first()
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.filter_by(id=int(current_user_id)).first()
 
-    if not user:
+        if not user:
+            return jsonify({
+                'msg': 'User not found'
+            }), 404
+
+        additional_claims = {'role': user.role}
+        new_access_token = create_access_token(identity=str(current_user_id), additional_claims=additional_claims)
+
         return jsonify({
-            'msg': 'User not found'
-        }), 404
+            'access_token': new_access_token
+        }), 200
 
-    additional_claims = {'role': user.role}
-    new_access_token = create_access_token(identity=str(current_user_id), additional_claims=additional_claims)
-
-    return jsonify({
-        'access_token': new_access_token
-    }), 200
+    except Exception as e:
+        return jsonify({
+            'msg': 'Internal server error',
+            'error': str(e)
+        }), 500
 
 
 @auth_bp.route('/logout', methods=['POST'])
@@ -190,18 +230,30 @@ def logout():
     
     Returns:
         JSON response confirming token revocation.
+
+    Responses:
+        200: Token revoked successfully.
+        500: Internal server error.
     """
-    jti = get_jwt()['jti']
-    user_id = get_jwt_identity()
-    token_type = get_jwt().get('type', 'access')
+    try:
+        jti = get_jwt()['jti']
+        user_id = get_jwt_identity()
+        token_type = get_jwt().get('type', 'access')
 
-    revoked_token = TokenBlocklist(jti=jti, token_type=token_type, user_identity=str(user_id))
-    db.session.add(revoked_token)
-    db.session.commit()
+        revoked_token = TokenBlocklist(jti=jti, token_type=token_type, user_identity=str(user_id))
+        db.session.add(revoked_token)
+        db.session.commit()
 
-    return jsonify({
-        'msg': 'Token revoked'
-    }), 200
+        return jsonify({
+            'msg': 'Token revoked'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'msg': 'Internal server error',
+            'error': str(e)
+        }), 500
 
 
 @auth_bp.route('/logout_refresh', methods=['POST'])
@@ -212,15 +264,27 @@ def logout_refresh():
         
     Returns:
         JSON response confirming refresh token revocation.
+
+    Responses:
+        200: Refresh token revoked successfully.
+        500: Internal server error.
     """
-    jti = get_jwt()['jti']
-    user_id = get_jwt_identity()
-    token_type = get_jwt().get('type', 'refresh')
+    try:
+        jti = get_jwt()['jti']
+        user_id = get_jwt_identity()
+        token_type = get_jwt().get('type', 'refresh')
 
-    revoked_token = TokenBlocklist(jti=jti, token_type=token_type, user_identity=str(user_id))
-    db.session.add(revoked_token)
-    db.session.commit()
+        revoked_token = TokenBlocklist(jti=jti, token_type=token_type, user_identity=str(user_id))
+        db.session.add(revoked_token)
+        db.session.commit()
 
-    return jsonify({
-        'msg': 'Refresh token revoked'
-    }), 200
+        return jsonify({
+            'msg': 'Refresh token revoked'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'msg': 'Internal server error',
+            'error': str(e)
+        }), 500

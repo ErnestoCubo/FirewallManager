@@ -5,7 +5,9 @@
             "permissions": {
                 "create_user": true,
                 "read_user": true,
-                "update_user": true,
+                "read_role": true,
+                "update_user_role": true,
+                "reset_user_password": true,
                 "delete_user": true,
                 "create_firewall": true,
                 "read_firewall": true,
@@ -30,7 +32,9 @@
             "permissions": {
                 "create_user": false,
                 "read_user": false,
-                "update_user": false,
+                "read_role": false,
+                "update_user_role": false,
+                "reset_user_password": false,
                 "delete_user": false,
                 "create_firewall": true,
                 "read_firewall": true,
@@ -55,7 +59,9 @@
             "permissions": {
                 "create_user": false,
                 "read_user": false,
-                "update_user": false,
+                "read_role": false,
+                "update_user_role": false,
+                "reset_user_password": false,
                 "delete_user": false,
                 "create_firewall": false,
                 "read_firewall": true,
