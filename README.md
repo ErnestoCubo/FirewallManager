@@ -1,6 +1,6 @@
 # FirewallManager
 
-A comprehensive RESTful API for managing network firewalls, policies, and security rules with JWT authentication, Role-Based Access Control (RBAC), and many-to-many relationship support.
+A comprehensive RESTful API for managing network firewalls, policies, and security rules with JWT authentication, Role-Based Access Control (RBAC), OpenAPI 3.0.3 documentation, and many-to-many relationship support.
 
 ## 📋 Table of Contents
 
@@ -20,28 +20,37 @@ A comprehensive RESTful API for managing network firewalls, policies, and securi
 
 - **JWT Authentication** for secure API access
 - **Role-Based Access Control (RBAC)** with admin, operator, and user roles
+- **OpenAPI 3.0.3 Documentation** with Swagger UI integration
+- **Flask-RESTX Framework** for modern REST API development
 - **Complete CRUD Operations** for Firewalls, Policies, and Rules
 - **User Management** with registration, login, and admin controls
 - **Many-to-Many Relationships** between entities
 - **RESTful API** following best practices
 - **SQLAlchemy ORM** with SQLite database
 - **Comprehensive Test Suite** with pytest
-- **Input Validation** with custom validators
+- **Input Validation** with Flask-RESTX models and custom validators
 - **Audit Trail** tracking created_by and last_modified_by
 - **Token Blacklist** for secure logout
 - **Health Check Endpoint** for monitoring
 - **Permission-based Access** with hierarchical role system
+- **Auto-generated API Documentation** at `/api/docs`
 
 ## 🏗️ Architecture
 
-```
+```bash
 FirewallManager/
 ├── instance/
 │   └── firewall_manager.db         # SQLite database
 ├── src/
-│   ├── app.py                      # Flask application entry point
+│   ├── app.py                      # Flask application with Flask-RESTX
 │   ├── config.py                   # Configuration settings
-│   ├── endpoints/                  # API endpoints
+│   ├── api_models/                 # Flask-RESTX API models
+│   │   ├── admin_models.py         # Admin endpoint models
+│   │   ├── auth_models.py          # Authentication models
+│   │   ├── firewall_models.py      # Firewall models
+│   │   ├── policy_models.py        # Policy models
+│   │   └── rule_models.py          # Rule models
+│   ├── endpoints/                  # API endpoints (Flask-RESTX Resources)
 │   │   ├── __init__.py
 │   │   ├── admin.py                # Admin management endpoints
 │   │   ├── auth.py                 # Authentication endpoints
@@ -140,13 +149,31 @@ FirewallManager/
 
    The API will be available at `http://localhost:5000`
 
+   **Swagger UI Documentation** is available at `http://localhost:5000/api/docs`
+
 ## 📚 API Documentation
 
 ### Base URL
 
-```
+```bash
 http://localhost:5000/api
 ```
+
+### Swagger UI
+
+The API documentation is automatically generated and available through Swagger UI at:
+
+```bash
+http://localhost:5000/api/docs
+```
+
+Features of the Swagger UI:
+
+- **Interactive API Explorer**: Test endpoints directly from the browser
+- **OpenAPI 3.0.3 Specification**: Modern API documentation standard
+- **JWT Authentication Support**: Authorize button for testing protected endpoints
+- **Request/Response Models**: View detailed schemas for all endpoints
+- **Try It Out**: Execute API calls with custom parameters
 
 ### Endpoints
 
@@ -177,6 +204,7 @@ http://localhost:5000/api
 | Method | Endpoint | Description | Auth Required | Min Role |
 |--------|----------|-------------|---------------|----------|
 | GET | `/firewalls` | List all firewalls | Yes | User |
+| GET | `/firewalls/<id>` | Get specific firewall | Yes | User |
 | POST | `/firewalls` | Create a new firewall | Yes | Operator |
 | PUT | `/firewalls/<id>` | Update firewall (replaces policies) | Yes | Operator |
 | PATCH | `/firewalls/<id>/policies` | Add policies to firewall | Yes | Operator |
@@ -188,6 +216,7 @@ http://localhost:5000/api
 | Method | Endpoint | Description | Auth Required | Min Role |
 |--------|----------|-------------|---------------|----------|
 | GET | `/firewall_policies` | List all policies | Yes | User |
+| GET | `/firewall_policies/<id>` | Get specific policy | Yes | User |
 | POST | `/firewall_policies` | Create a new policy | Yes | Operator |
 | PUT | `/firewall_policies/<id>` | Update policy (replaces rules) | Yes | Operator |
 | PATCH | `/firewall_policies/<id>/rules` | Add rules to policy | Yes | Operator |
@@ -199,6 +228,7 @@ http://localhost:5000/api
 | Method | Endpoint | Description | Auth Required | Min Role |
 |--------|----------|-------------|---------------|----------|
 | GET | `/firewall_rules` | List all rules | Yes | User |
+| GET | `/firewall_rules/<id>` | Get specific rule | Yes | User |
 | POST | `/firewall_rules` | Create a new rule | Yes | Operator |
 | PUT | `/firewall_rules/<id>` | Update rule | Yes | Operator |
 | DELETE | `/firewall_rules/<id>` | Delete rule | Yes | Operator |
@@ -260,6 +290,13 @@ curl -X GET http://localhost:5000/api/firewalls \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
 ```
 
+### Using Swagger UI Authentication
+
+1. Navigate to `http://localhost:5000/api/docs`
+2. Click the **Authorize** button
+3. Enter your JWT token in the format: `Bearer <your-token>`
+4. Click **Authorize** to apply the token to all requests
+
 ## 🗄️ Database Schema
 
 ### Models
@@ -305,7 +342,7 @@ curl -X GET http://localhost:5000/api/firewalls \
     "id": "integer (primary key)",
     "name": "string (unique)",
     "description": "string",
-    "policy_type": "string (inbound|outbound|nat|vpn)",
+    "policy_type": "string (security|nat|vpn|qos)",
     "is_active": "boolean",
     "priority": "integer (non-negative)",
     "created_by": "string",
@@ -388,9 +425,10 @@ poetry run pytest -v
 - Admin management endpoints
 - CRUD operations for all entities
 - Many-to-many relationship management
-- Input validation with custom validators
+- Input validation with Flask-RESTX models
 - Error handling
 - Token management
+- API model validation
 
 ## 💻 Development
 
@@ -434,6 +472,42 @@ sqlite3 instance/firewall_manager.db
 .tables
 .schema firewalls
 SELECT * FROM firewalls;
+```
+
+### API Development with Flask-RESTX
+
+The application uses Flask-RESTX for API development, providing:
+
+- **Automatic API documentation** generation
+- **Request/Response validation** using models
+- **Namespace organization** for better code structure
+- **Built-in error handling** and validation
+- **OpenAPI 3.0.3 specification** compliance
+
+Example of adding a new endpoint:
+
+```python
+from flask_restx import Resource, Namespace
+
+# Create namespace
+my_ns = Namespace('my_endpoint', description='My custom endpoint')
+
+# Define model
+my_model = my_ns.model('MyModel', {
+    'field': fields.String(required=True, description='Field description')
+})
+
+# Create resource
+@my_ns.route('')
+class MyResource(Resource):
+    @jwt_required()
+    @my_ns.doc('create_item', security='Bearer')
+    @my_ns.expect(my_model, validate=True)
+    @my_ns.response(201, 'Created successfully')
+    def post(self):
+        """Create a new item"""
+        # Implementation here
+        pass
 ```
 
 ## 📝 Examples
@@ -504,7 +578,7 @@ curl -X POST http://localhost:5000/api/firewall_policies \
   -d '{
     "name": "Server Management Policy",
     "description": "Policy for server management",
-    "policy_type": "inbound",
+    "policy_type": "security",
     "is_active": true,
     "priority": 1,
     "rules_id": [1]
@@ -563,7 +637,17 @@ curl -X GET http://localhost:5000/api/admin/roles \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-#### 8. Logout
+#### 8. Using Swagger UI
+
+Instead of using curl, you can test all endpoints interactively:
+
+1. Open `http://localhost:5000/api/docs` in your browser
+2. Login using the `/auth/login` endpoint
+3. Copy the access token
+4. Click the **Authorize** button and paste: `Bearer <your-token>`
+5. Now you can test all endpoints directly from the browser
+
+#### 9. Logout
 
 ```bash
 # Logout and blacklist token
@@ -586,6 +670,7 @@ curl -X POST http://localhost:5000/api/auth/logout \
 - Write docstrings for all functions
 - Maintain test coverage above 80%
 - Include tests for new features
+- Use Flask-RESTX models for request/response validation
 
 ### Testing Guidelines
 
@@ -594,6 +679,7 @@ curl -X POST http://localhost:5000/api/auth/logout \
 - Mock external dependencies
 - Test authentication and authorization
 - Test RBAC permissions
+- Validate API models and schemas
 
 ## 📄 License
 
@@ -602,16 +688,19 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 Acknowledgments
 
 - Flask framework for the web foundation
+- Flask-RESTX for REST API framework with OpenAPI support
 - Flask-JWT-Extended for JWT authentication
 - SQLAlchemy for ORM capabilities
 - Poetry for dependency management
 - Pytest for testing framework
+- Swagger UI for interactive API documentation
 
 ## 📧 Contact
 
 For questions or support, please open an issue in the GitHub repository.
 
 ---
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Last Updated:** September 2025  
-**Author:** Your Name
+**Author:** ErnestoCubo  
+**Major Update:** Migrated to Flask-RESTX with OpenAPI 3.0.3 support
