@@ -43,7 +43,7 @@ def sample_firewall_policy():
         "name": "TestPolicy",
         "description": "A test firewall policy",
         "policy_type": "inbound",
-        "is_active": "true",
+        "is_active": True,
         "priority": 1,
         "rules": [],
     }
@@ -58,7 +58,7 @@ def sample_firewall_rule():
         "destination_ip": "192.168.1.20",
         "protocol": "tcp",
         "port": 22,
-        "is_active": "true",
+        "is_active": True,
         "created_by": "tester",
         "last_modified_by": "tester",
     }

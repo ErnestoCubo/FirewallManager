@@ -228,7 +228,7 @@ class TestUserRoleManagement:
                             headers=admin_headers)
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["message"] == "User role updated"
+        assert data["message"] == "User role updated from user to operator"
         
         # Verify role was updated
         updated_user = User.query.filter_by(id=user.id).first()
@@ -259,7 +259,7 @@ class TestUserRoleManagement:
                             headers=admin_headers)
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert data["message"] == "Role is required"
+        assert data["message"] == "Input payload validation failed"
     
     def test_update_user_role_as_operator(self, client):
         """Test that operator cannot update user roles"""
@@ -282,15 +282,17 @@ class TestUserRoleManagement:
         user = User.query.filter_by(username="test_user1").first()
         
         # Try to set invalid role
-        update_data = {"role": "superadmin"}  # Not in permission_settings.json
+        update_data = {"role": "superadmin"}  # Not a valid role
         response = client.put(f"/api/admin/users/{user.id}/role", 
                             data=json.dumps(update_data), 
                             headers=admin_headers)
-        assert response.status_code == 200  # Will succeed but role validation should be added
+        assert response.status_code == 400  # Should be rejected now
+        data = json.loads(response.data)
+        assert "Input payload validation failed" in data["message"]
         
-        # Verify role was updated (this shows a potential security issue)
-        updated_user = User.query.filter_by(id=user.id).first()
-        assert updated_user.role == "superadmin"
+        # Verify role was NOT updated
+        unchanged_user = User.query.filter_by(id=user.id).first()
+        assert unchanged_user.role == "user"  # Should remain unchanged
 
 
 class TestUserDeletion:
@@ -350,9 +352,15 @@ class TestUserDeletion:
         # Get admin user
         admin_user = User.query.filter_by(username="admin_user").first()
         
-        # Try to delete self (this test shows the endpoint doesn't prevent self-deletion)
+        # Try to delete self
         response = client.delete(f"/api/admin/users/{admin_user.id}", headers=admin_headers)
-        assert response.status_code == 200  # Currently allows self-deletion (potential issue)
+        assert response.status_code == 400  # Should be prevented now
+        data = json.loads(response.data)
+        assert data["message"] == "Cannot delete your own account"
+        
+        # Verify admin still exists
+        existing_admin = User.query.filter_by(username="admin_user").first()
+        assert existing_admin is not None
 
 
 class TestPasswordReset:
@@ -402,7 +410,7 @@ class TestPasswordReset:
                               headers=admin_headers)
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert data["message"] == "New password is required"
+        assert data["message"] == "Input payload validation failed"
     
     def test_reset_password_nonexistent_user(self, client):
         """Test resetting password for non-existent user"""
@@ -436,12 +444,14 @@ class TestPasswordReset:
         
         user = User.query.filter_by(username="test_user1").first()
         
-        # Try weak password (Note: endpoint doesn't validate password strength)
+        # Try weak password (less than 8 characters)
         reset_data = {"password": "123"}
         response = client.post(f"/api/admin/users/{user.id}/reset_password", 
                               data=json.dumps(reset_data), 
                               headers=admin_headers)
-        assert response.status_code == 200  # Currently accepts weak passwords (potential issue)
+        assert response.status_code == 400  # Should be rejected now
+        data = json.loads(response.data)
+        assert "Input payload validation failed" in data["message"]
 
 
 class TestRoleManagement:

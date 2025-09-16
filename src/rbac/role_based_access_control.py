@@ -52,19 +52,15 @@ def role_required(role:str , permission: str = None):
             user = User.query.filter_by(id=user_id).first()
 
             if not user:
-                return jsonify({"message": "User not found"}), 404
+                return {"message": "User not found"}, 404
 
             token_role = claims.get('role', 'user').lower()
 
             if token_role != user.role:
-                return jsonify({
-                    'msg': 'Insufficient permissions'
-                }), 403 
+                return {'msg': 'Insufficient permissions'}, 403 
 
             if has_permission(token_role, role, permission) is False:
-                return jsonify({
-                    'msg': 'Insufficient permissions'
-                }), 403
+                return {'msg': 'Insufficient permissions'}, 403
             
             return fn(*args, **kwargs)
         return decorator
