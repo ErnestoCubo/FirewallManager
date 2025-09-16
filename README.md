@@ -7,6 +7,7 @@ A comprehensive RESTful API for managing network firewalls, policies, and securi
 - [Features](#features)
 - [Architecture](#architecture)
 - [Installation](#installation)
+- [Docker Setup](#docker-setup)
 - [API Documentation](#api-documentation)
 - [Authentication](#authentication)
 - [Database Schema](#database-schema)
@@ -34,6 +35,7 @@ A comprehensive RESTful API for managing network firewalls, policies, and securi
 - **Health Check Endpoint** for monitoring
 - **Permission-based Access** with hierarchical role system
 - **Auto-generated API Documentation** at `/api/docs`
+- **Docker Support** with Alpine Linux for lightweight containers
 
 ## 🏗️ Architecture
 
@@ -44,6 +46,7 @@ FirewallManager/
 ├── src/
 │   ├── app.py                      # Flask application with Flask-RESTX
 │   ├── config.py                   # Configuration settings
+│   ├── init_admin.py               # Admin user initialization script
 │   ├── api_models/                 # Flask-RESTX API models
 │   │   ├── admin_models.py         # Admin endpoint models
 │   │   ├── auth_models.py          # Authentication models
@@ -89,6 +92,9 @@ FirewallManager/
 │   ├── test_firewall_rules_endpoints.py
 │   ├── test_rbac.py                # RBAC tests
 │   └── test_validations.py         # Validator tests
+├── Dockerfile                      # Docker image definition
+├── docker-compose.yml              # Docker Compose configuration
+├── .dockerignore                   # Docker ignore file
 ├── pyproject.toml                  # Poetry dependencies
 ├── poetry.lock                     # Locked dependencies
 ├── pytest.ini                      # Pytest configuration
@@ -101,8 +107,9 @@ FirewallManager/
 
 - Python 3.10.12+
 - Poetry (for dependency management)
+- Docker and Docker Compose (for containerized deployment)
 
-### Setup Steps
+### Option 1: Local Setup with Poetry
 
 1. **Clone the repository:**
 
@@ -150,6 +157,228 @@ FirewallManager/
    The API will be available at `http://localhost:5000`
 
    **Swagger UI Documentation** is available at `http://localhost:5000/api/docs`
+
+### Option 2: Docker Setup (Recommended)
+
+See the [Docker Setup](#docker-setup) section below for containerized deployment.
+
+## 🐳 Docker Setup
+
+### Quick Start with Docker Compose
+
+The easiest way to get started is using Docker Compose, which will handle all the setup automatically:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd FirewallManager
+
+# Start the application with Docker Compose
+docker-compose up -d
+
+# Check the logs
+docker-compose logs -f firewall-manager
+
+# The API will be available at http://localhost:5000
+# Swagger UI will be available at http://localhost:5000/api/docs
+```
+
+### Building the Docker Image
+
+If you want to build the Docker image manually:
+
+```bash
+# Build the Docker image
+docker build -t firewall-manager:latest .
+
+# Run the container
+docker run -d \
+  -p 5000:5000 \
+  -v firewall_data:/app/instance \
+  --name firewall-manager \
+  firewall-manager:latest
+
+# Check if it's running
+docker ps
+
+# View logs
+docker logs firewall-manager
+```
+
+### Docker Compose Configuration
+
+The `docker-compose.yml` file includes:
+
+- **Automatic admin user creation**: The initial admin user (username: `admin`, password: `admin`) is created automatically on first run
+- **Persistent data volume**: Database is stored in a Docker volume for data persistence
+- **Health checks**: Automatic health monitoring with restart on failure
+- **Environment variables**: Easy configuration through environment variables
+
+#### Environment Variables
+
+You can customize the deployment by setting these environment variables:
+
+```yaml
+environment:
+  - FLASK_ENV=production              # Set to 'development' for debug mode
+  - DATABASE_URI=sqlite:///instance/firewall_manager.db
+  - SECRET_KEY=your-secret-key-here   # Change in production!
+  - JWT_SECRET_KEY=your-jwt-key-here  # Change in production!
+  - JWT_ACCESS_TOKEN_EXPIRES=3600     # Access token expiry (seconds)
+  - JWT_REFRESH_TOKEN_EXPIRES=2592000 # Refresh token expiry (seconds)
+  - INIT_ADMIN=true                   # Create admin user on first run
+  - WORKERS=1                          # Number of Gunicorn workers
+  - THREADS=4                          # Number of threads per worker
+```
+
+### Docker Commands Reference
+
+```bash
+# Start the application
+docker-compose up -d
+
+# Stop the application
+docker-compose down
+
+# View logs
+docker-compose logs -f firewall-manager
+
+# Restart the application
+docker-compose restart
+
+# Remove everything including volumes (WARNING: This deletes all data!)
+docker-compose down -v
+
+# Rebuild after code changes
+docker-compose build
+docker-compose up -d
+
+# Execute commands inside the container
+docker-compose exec firewall-manager sh
+
+# Check health status
+docker-compose exec firewall-manager curl http://localhost:5000/api/health
+
+# View container statistics
+docker stats firewall-manager
+```
+
+### Managing the Database
+
+```bash
+# Access the SQLite database inside the container
+docker-compose exec firewall-manager sqlite3 /app/instance/firewall_manager.db
+
+# Backup the database
+docker-compose exec firewall-manager cp /app/instance/firewall_manager.db /app/instance/backup.db
+docker cp firewall-manager:/app/instance/backup.db ./backup.db
+
+# Initialize admin user manually (if INIT_ADMIN was not set)
+docker-compose exec firewall-manager python /app/src/init_admin.py
+```
+
+### Docker Image Details
+
+The Docker image uses:
+
+- **Base Image**: `python:3.10.12-alpine` (lightweight Alpine Linux)
+- **Size**: ~200MB (optimized multi-stage build)
+- **Security**: Runs as non-root user (`appuser`)
+- **Server**: Gunicorn WSGI server for production
+- **Dependencies**: Managed with Poetry
+
+### Default Admin Credentials
+
+When the container starts for the first time with `INIT_ADMIN=true`, it creates an admin user:
+
+- **Username**: `admin`
+- **Password**: `admin`
+- **Email**: `admin@firewall-manager.local`
+- **Role**: `admin`
+
+⚠️ **Security Warning**: Change the admin password immediately after first login!
+
+### Testing the Docker Deployment
+
+```bash
+# 1. Check if the service is healthy
+curl http://localhost:5000/api/health
+
+# 2. Login with admin credentials
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin"}'
+
+# 3. Save the access token from the response
+TOKEN="<your-access-token-here>"
+
+# 4. Test an authenticated endpoint
+curl -X GET http://localhost:5000/api/firewalls \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Troubleshooting Docker Setup
+
+#### Container won't start
+
+```bash
+# Check logs for errors
+docker-compose logs firewall-manager
+
+# Verify the image was built correctly
+docker images | grep firewall-manager
+
+# Check if port 5000 is already in use
+lsof -i :5000
+```
+
+#### Database issues
+
+```bash
+# Reset the database (WARNING: This deletes all data!)
+docker-compose down -v
+docker-compose up -d
+```
+
+#### Permission issues
+
+```bash
+# Ensure proper ownership inside container
+docker-compose exec firewall-manager ls -la /app/instance
+```
+
+### Docker Development Tips
+
+1. **Hot Reload**: For development, mount your source code:
+
+   ```yaml
+   volumes:
+     - ./src:/app/src:ro  # Read-only mount for security
+   ```
+
+2. **Debug Mode**: Set environment variables for debugging:
+
+   ```yaml
+   environment:
+     - FLASK_ENV=development
+     - FLASK_DEBUG=1
+   ```
+
+3. **Custom Network**: Create a custom network for multi-container setups:
+
+   ```bash
+   docker network create firewall-network
+   ```
+
+4. **Resource Limits**: Add resource constraints in docker-compose.yml:
+
+   ```yaml
+   deploy:
+     resources:
+       limits:
+         cpus: '1.0'
+         memory: 512M
+   ```
 
 ## 📚 API Documentation
 
@@ -416,6 +645,16 @@ poetry run pytest tests/test_firewall_endpoints.py
 
 ```bash
 poetry run pytest -v
+```
+
+### Run tests in Docker
+
+```bash
+# Execute tests inside the container
+docker-compose exec firewall-manager pytest
+
+# With coverage
+docker-compose exec firewall-manager pytest --cov=src
 ```
 
 ### Test Coverage Areas
@@ -694,6 +933,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Poetry for dependency management
 - Pytest for testing framework
 - Swagger UI for interactive API documentation
+- Alpine Linux for lightweight Docker containers
 
 ## 📧 Contact
 
@@ -703,4 +943,4 @@ For questions or support, please open an issue in the GitHub repository.
 **Version:** 2.0.0  
 **Last Updated:** September 2025  
 **Author:** ErnestoCubo  
-**Major Update:** Migrated to Flask-RESTX with OpenAPI 3.0.3 support
+**Major Update:** Migrated to Flask-RESTX with OpenAPI 3.0.3 support and Docker containerization
