@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  firewall-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: firewall-manager:latest
+    container_name: firewall-manager
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URI=sqlite:///instance/firewall_manager.db
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-change-in-production}
+      - JWT_ACCESS_TOKEN_EXPIRES=3600
+      - JWT_REFRESH_TOKEN_EXPIRES=2592000
+      - INIT_ADMIN=true  # Set to true to create admin user on first run
+      - WORKERS=1  # Start with 1 worker to avoid race condition during init
+      - THREADS=4  # Increase threads to compensate for single worker
+    volumes:
+      # Persist database
+      - firewall_data:/app/instance
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - firewall-network
+
+volumes:
+  firewall_data:
+    driver: local
+
+networks:
+  firewall-network:
+    driver: bridge
